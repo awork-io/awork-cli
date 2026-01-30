@@ -13,6 +13,15 @@ Token-only awork CLI. DRY: swagger-driven source generator for full client + DTO
 dotnet build
 ```
 
+## Tests
+```
+./scripts/test-build.sh
+./scripts/test-cli-names.sh
+./scripts/test-example.sh
+./scripts/test-params.sh
+./scripts/test-unit.sh
+```
+
 ## Run
 ```
 dotnet run --project src/Awk.Cli -- doctor

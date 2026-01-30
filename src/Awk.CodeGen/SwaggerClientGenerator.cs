@@ -569,11 +569,17 @@ public sealed class SwaggerClientGenerator : ISourceGenerator
         var lastLiteralKebab = ToKebabCase(normalizedLastLiteral);
         var isNestedResource = literalSegments.Count > 1;
         var resourceName = lastLiteralKebab;
+        var tagName = ToKebabCase(NormalizeSegment(op.Tag));
+        var tagMatchesResource = string.Equals(resourceName, tagName, StringComparison.OrdinalIgnoreCase);
+        var isTopLevelResource = literalSegments.Count == 1;
+        var itemResourceName = IsPluralResource(resourceName) ? SingularizeResource(resourceName) : resourceName;
         var hasItemPath = collectionPathsWithItem.Contains(op.Path);
         var isActionSegment = IsActionSegment(normalizedLastLiteral);
         var hasParamBeforeLastLiteral = segments.Take(segments.Count - 1).Any(IsParamSegment);
         var parentLiteral = literalSegments.Count > 1 ? literalSegments[literalSegments.Count - 2] : string.Empty;
-        var parentName = Singularize(ToKebabCase(NormalizeSegment(parentLiteral)));
+        var parentName = SingularizeResource(ToKebabCase(NormalizeSegment(parentLiteral)));
+        var actionParentName = GetActionParentName(segments);
+        var actionName = isActionSegment ? BuildActionNameWithParent(resourceName, actionParentName) : resourceName;
         var isNameParam = lastIsParam && !string.IsNullOrWhiteSpace(paramName) &&
             paramName.EndsWith("name", StringComparison.OrdinalIgnoreCase) &&
             !paramName.EndsWith("id", StringComparison.OrdinalIgnoreCase);
@@ -586,26 +592,34 @@ public sealed class SwaggerClientGenerator : ISourceGenerator
         var baseName = op.Method switch
         {
             "GET" => lastIsParam
-                ? (isNestedResource ? "get-" + resourceName : "get")
+                ? (isTopLevelResource && !tagMatchesResource ? "get-" + itemResourceName : (isNestedResource ? "get-" + itemResourceName : "get"))
                 : (segments.Count == 1
-                    ? (IsPluralResource(lastLiteralKebab) ? "list" : "get-" + ToKebabCase(lastLiteral))
+                    ? (IsPluralResource(lastLiteralKebab)
+                        ? (tagMatchesResource ? "list" : "list-" + resourceName)
+                        : (tagMatchesResource ? "get-" + ToKebabCase(lastLiteral) : "get-" + resourceName))
                     : (isNestedResource && IsPluralResource(resourceName)
                         ? (hasParamBeforeLastLiteral && !string.IsNullOrWhiteSpace(parentName)
                             ? "list-" + parentName + "-" + resourceName
                             : "list-" + resourceName)
                         : (hasItemPath && isNestedResource ? "list-" + resourceName : "get-" + ToKebabCase(lastLiteral)))),
             "POST" => segments.Count == 1
-                ? "create"
-                : (isActionSegment ? resourceName : (isNestedResource ? "create-" + resourceName : (IsPluralResource(lastLiteralKebab) ? "create" : lastLiteralKebab))),
+                ? (tagMatchesResource ? "create" : "create-" + resourceName)
+                : (isActionSegment ? actionName : (isNestedResource ? "create-" + resourceName : (IsPluralResource(lastLiteralKebab) ? "create" : lastLiteralKebab))),
             "PUT" => (lastIsParam || segments.Count == 1)
-                ? (isActionSegment ? resourceName : (isNestedResource ? "update-" + resourceName : "update"))
-                : (isActionSegment ? resourceName : (isNestedResource ? "update-" + resourceName : ToKebabCase(lastLiteral))),
+                ? (isActionSegment
+                    ? actionName
+                    : (isTopLevelResource && !tagMatchesResource ? "update-" + itemResourceName : (isNestedResource ? "update-" + itemResourceName : "update")))
+                : (isActionSegment ? actionName : (isNestedResource ? "update-" + resourceName : ToKebabCase(lastLiteral))),
             "PATCH" => lastIsParam
-                ? (isActionSegment ? resourceName : (isNestedResource ? "patch-" + resourceName : "patch"))
-                : (isActionSegment ? resourceName : (isNestedResource ? "patch-" + resourceName : ToKebabCase(lastLiteral))),
+                ? (isActionSegment ? actionName : (isTopLevelResource && !tagMatchesResource ? "patch-" + itemResourceName : (isNestedResource ? "patch-" + itemResourceName : "patch")))
+                : (isActionSegment ? actionName : (isNestedResource ? "patch-" + resourceName : ToKebabCase(lastLiteral))),
             "DELETE" => lastIsParam
-                ? (isNestedResource ? "delete-" + resourceName : "delete")
-                : (isNestedResource ? "delete-" + resourceName : "delete-" + ToKebabCase(lastLiteral)),
+                ? (isTopLevelResource && !tagMatchesResource ? "delete-" + itemResourceName : (isNestedResource ? "delete-" + itemResourceName : "delete"))
+                : (isNestedResource
+                    ? (hasParamBeforeLastLiteral && !string.IsNullOrWhiteSpace(parentName)
+                        ? "delete-" + parentName + "-" + resourceName
+                        : "delete-" + resourceName)
+                    : (segments.Count == 1 && !tagMatchesResource ? "delete-" + resourceName : "delete-" + ToKebabCase(lastLiteral))),
             _ => string.Empty
         };
 
@@ -750,12 +764,57 @@ public sealed class SwaggerClientGenerator : ISourceGenerator
         ["workspaceabsences"] = "workspace-absences"
     };
 
-    private static string Singularize(string value)
+    private static string SingularizeResource(string value)
     {
         if (string.IsNullOrWhiteSpace(value)) return value;
-        return value.EndsWith("s", StringComparison.OrdinalIgnoreCase) && value.Length > 1
-            ? value.Substring(0, value.Length - 1)
-            : value;
+        var parts = value.Split(new[] { '-' }, StringSplitOptions.RemoveEmptyEntries).ToList();
+        if (parts.Count == 0) return value;
+        parts[parts.Count - 1] = SingularizeToken(parts[parts.Count - 1]);
+        return string.Join("-", parts);
+    }
+
+    private static string SingularizeToken(string token)
+    {
+        if (string.IsNullOrWhiteSpace(token)) return token;
+        if (token.EndsWith("ies", StringComparison.OrdinalIgnoreCase) && token.Length > 3)
+        {
+            return token.Substring(0, token.Length - 3) + "y";
+        }
+        if (token.EndsWith("ses", StringComparison.OrdinalIgnoreCase) && token.Length > 3)
+        {
+            return token.Substring(0, token.Length - 2);
+        }
+        if (token.EndsWith("s", StringComparison.OrdinalIgnoreCase) && !token.EndsWith("ss", StringComparison.OrdinalIgnoreCase) && token.Length > 1)
+        {
+            return token.Substring(0, token.Length - 1);
+        }
+        return token;
+    }
+
+    private static string GetActionParentName(List<string> segments)
+    {
+        for (var i = segments.Count - 2; i >= 0; i--)
+        {
+            if (!IsParamSegment(segments[i])) continue;
+            if (i - 1 < 0) break;
+            var literal = segments[i - 1];
+            if (IsParamSegment(literal)) break;
+            return SingularizeResource(ToKebabCase(NormalizeSegment(literal)));
+        }
+
+        return string.Empty;
+    }
+
+    private static string BuildActionNameWithParent(string actionName, string parentName)
+    {
+        if (string.IsNullOrWhiteSpace(actionName) || string.IsNullOrWhiteSpace(parentName)) return actionName;
+        var parts = actionName.Split(new[] { '-' }, StringSplitOptions.RemoveEmptyEntries);
+        if (parts.Length < 2) return actionName;
+        var verb = parts[0];
+        var obj = string.Join("-", parts.Skip(1));
+        if (!obj.EndsWith("tags", StringComparison.OrdinalIgnoreCase)) return actionName;
+        if (obj.StartsWith(parentName + "-", StringComparison.OrdinalIgnoreCase)) return actionName;
+        return $"{verb}-{parentName}-{obj}";
     }
 
     private static readonly HashSet<string> KnownResources = new(StringComparer.OrdinalIgnoreCase)

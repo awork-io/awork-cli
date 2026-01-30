@@ -3,4 +3,7 @@
     <Project Path="src/Awk.Cli/Awk.Cli.csproj" />
     <Project Path="src/Awk.CodeGen/Awk.CodeGen.csproj" />
   </Folder>
+  <Folder Name="/tests/">
+    <Project Path="tests/Awk.CodeGen.Tests/Awk.CodeGen.Tests.csproj" />
+  </Folder>
 </Solution>
