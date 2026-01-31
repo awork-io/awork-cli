@@ -95,6 +95,32 @@ public sealed class CliIntegrationTests
     }
 
     [Fact]
+    public async Task UpdateTags_AllowsNestedObjectWithSet()
+    {
+        using var server = new TestServer(async ctx =>
+        {
+            ctx.Response.StatusCode = 200;
+            await HttpListenerExtensions.RespondJsonAsync(ctx.Response, "{\"ok\":true}");
+        });
+
+        var result = await RunCliAsync(
+            server.BaseUri,
+            "task-tags",
+            "tasks-update-tags",
+            "--set",
+            "newTag.name=Priority");
+
+        Assert.Equal(0, result.ExitCode);
+
+        var request = server.Requests.Single();
+        Assert.Equal("POST", request.Method);
+        Assert.Equal("/tasks/updatetags", request.Path);
+
+        var body = JsonDocument.Parse(request.Body ?? "{}");
+        Assert.Equal("Priority", body.RootElement.GetProperty("newTag").GetProperty("name").GetString());
+    }
+
+    [Fact]
     public async Task TasksCreate_BuildsBodyFromOptions()
     {
         using var server = new TestServer(async ctx =>
@@ -132,6 +158,62 @@ public sealed class CliIntegrationTests
     }
 
     [Fact]
+    public async Task BodyFile_MergesWithSetOverrides()
+    {
+        using var server = new TestServer(async ctx =>
+        {
+            ctx.Response.StatusCode = 200;
+            await HttpListenerExtensions.RespondJsonAsync(ctx.Response, "{\"ok\":true}");
+        });
+
+        var tempFile = Path.GetTempFileName();
+        await File.WriteAllTextAsync(tempFile, "{\"name\":\"FromFile\",\"baseType\":\"private\",\"entityId\":\"user-1\"}");
+
+        var result = await RunCliAsync(
+            server.BaseUri,
+            "tasks",
+            "create",
+            "--body",
+            "@" + tempFile,
+            "--set",
+            "name=Override");
+
+        Assert.Equal(0, result.ExitCode);
+        var request = server.Requests.Single();
+        var body = JsonDocument.Parse(request.Body ?? "{}");
+        Assert.Equal("Override", body.RootElement.GetProperty("name").GetString());
+        Assert.Equal("private", body.RootElement.GetProperty("baseType").GetString());
+    }
+
+    [Fact]
+    public async Task SetJson_FileArray_WritesArrayBody()
+    {
+        using var server = new TestServer(async ctx =>
+        {
+            ctx.Response.StatusCode = 204;
+            await ctx.Response.OutputStream.FlushAsync();
+        });
+
+        var tempFile = Path.GetTempFileName();
+        await File.WriteAllTextAsync(tempFile, "[\"u1\",\"u2\"]");
+
+        var result = await RunCliAsync(
+            server.BaseUri,
+            "absence-regions",
+            "users-assign",
+            "--set",
+            "regionId=region-1",
+            "--set-json",
+            "userIds=@" + tempFile);
+
+        Assert.Equal(0, result.ExitCode);
+        var request = server.Requests.Single();
+        var body = JsonDocument.Parse(request.Body ?? "{}");
+        var ids = body.RootElement.GetProperty("userIds").EnumerateArray().Select(x => x.GetString()).ToList();
+        Assert.Equal(new[] { "u1", "u2" }, ids);
+    }
+
+    [Fact]
     public async Task InvalidBodyField_ReturnsErrorEnvelope()
     {
         var result = await RunCliAsync(
@@ -144,6 +226,72 @@ public sealed class CliIntegrationTests
         var output = JsonDocument.Parse(result.StdOut);
         Assert.Equal(0, output.RootElement.GetProperty("statusCode").GetInt32());
         Assert.Contains("Unknown body field", output.RootElement.GetProperty("response").GetProperty("error").GetString());
+    }
+
+    [Fact]
+    public async Task MissingBody_ReturnsErrorEnvelope()
+    {
+        var result = await RunCliAsync(
+            new Uri("http://127.0.0.1:1/"),
+            "tasks",
+            "create");
+
+        var output = JsonDocument.Parse(result.StdOut);
+        Assert.Equal(0, output.RootElement.GetProperty("statusCode").GetInt32());
+        Assert.Contains("Body is required", output.RootElement.GetProperty("response").GetProperty("error").GetString());
+    }
+
+    [Fact]
+    public async Task TraceId_UsesFallbackHeader()
+    {
+        using var server = new TestServer(async ctx =>
+        {
+            ctx.Response.StatusCode = 200;
+            ctx.Response.Headers["traceparent"] = "00-test";
+            await HttpListenerExtensions.RespondJsonAsync(ctx.Response, "{\"ok\":true}");
+        });
+
+        var result = await RunCliAsync(server.BaseUri, "doctor");
+        var output = JsonDocument.Parse(result.StdOut);
+        Assert.Equal("00-test", output.RootElement.GetProperty("traceId").GetString());
+    }
+
+    [Fact]
+    public async Task NonJsonResponse_ReturnsRawString()
+    {
+        using var server = new TestServer(async ctx =>
+        {
+            ctx.Response.StatusCode = 200;
+            var bytes = Encoding.UTF8.GetBytes("plain");
+            ctx.Response.ContentType = "text/plain";
+            ctx.Response.ContentLength64 = bytes.Length;
+            await ctx.Response.OutputStream.WriteAsync(bytes, 0, bytes.Length);
+        });
+
+        var result = await RunCliAsync(server.BaseUri, "doctor");
+        var output = JsonDocument.Parse(result.StdOut);
+        Assert.Equal("plain", output.RootElement.GetProperty("response").GetString());
+    }
+
+    [Fact]
+    public async Task PathParameters_AreOrdered()
+    {
+        using var server = new TestServer(async ctx =>
+        {
+            ctx.Response.StatusCode = 200;
+            await HttpListenerExtensions.RespondJsonAsync(ctx.Response, "{\"ok\":true}");
+        });
+
+        var result = await RunCliAsync(
+            server.BaseUri,
+            "users",
+            "get-contact-info",
+            "user-1",
+            "contact-1");
+
+        Assert.Equal(0, result.ExitCode);
+        var request = server.Requests.Single();
+        Assert.Equal("/users/user-1/contactinfo/contact-1", request.Path);
     }
 
     private static async Task<CliResult> RunCliAsync(Uri baseUri, params string[] args)
