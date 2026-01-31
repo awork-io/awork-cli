@@ -12,7 +12,7 @@ Steps:
 2. ./scripts/test-cli-names.sh
 3. ./scripts/test-example.sh
 4. ./scripts/test-params.sh
-5. ./scripts/test-unit.sh
+5. ./scripts/test-unit.sh (includes generator + CLI mock tests)
 
 Results (2026-01-30):
 - test-build: pass
