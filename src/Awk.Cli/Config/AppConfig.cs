@@ -1,16 +1,22 @@
+using System.Text.Json.Serialization;
+
 namespace Awk.Config;
 
 internal sealed record AppConfig(
-    string Token,
-    string EnvFile,
-    string ApiBaseUrl
-)
+    string ApiBaseUrl,
+    string? ApiToken,
+    OAuthConfig? OAuth)
 {
-    internal const string BaseUrl = "https://api.awork.com/api/v1";
+    internal const string DefaultBaseUrl = "https://api.awork.com/api/v1";
+
+    [JsonIgnore]
+    internal string EnvFile { get; init; } = ".env";
 
     internal static AppConfig Default(string envFile) => new(
-        Token: string.Empty,
-        EnvFile: envFile,
-        ApiBaseUrl: BaseUrl
-    );
+        ApiBaseUrl: DefaultBaseUrl,
+        ApiToken: null,
+        OAuth: OAuthConfig.Default)
+    {
+        EnvFile = envFile
+    };
 }

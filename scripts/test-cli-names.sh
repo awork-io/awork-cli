@@ -27,9 +27,15 @@ print("\n".join(commands))
 PY
 }
 
+cli_dll="src/Awk.Cli/bin/Debug/net10.0/awork.dll"
+if [[ ! -f "$cli_dll" ]]; then
+  echo "CLI build output not found. Run ./scripts/test-build.sh first." >&2
+  exit 1
+fi
+
 tmp_root="$(mktemp -d)"
 top_help="$tmp_root/top.txt"
-NO_COLOR=1 dotnet run --project src/Awk.Cli -- --help > "$top_help" 2>&1
+NO_COLOR=1 dotnet "$cli_dll" --help > "$top_help" 2>&1
 
 top_commands=()
 while IFS= read -r cmd; do
@@ -46,7 +52,7 @@ patterns=("list-get" "get-get" "create-create" "list-list" "users-users" "roles-
 
 for cmd in "${top_commands[@]}"; do
   sub_help="$tmp_root/$cmd.txt"
-  NO_COLOR=1 dotnet run --project src/Awk.Cli -- "$cmd" --help > "$sub_help" 2>&1 || continue
+  NO_COLOR=1 dotnet "$cli_dll" "$cmd" --help > "$sub_help" 2>&1 || continue
   while IFS= read -r subcmd; do
     for pat in "${patterns[@]}"; do
       if [[ "$subcmd" == *"$pat"* ]]; then

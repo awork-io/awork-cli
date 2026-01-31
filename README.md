@@ -4,7 +4,7 @@
     <strong>The awork CLI — built for humans and agents alike</strong>
   </p>
   <p align="center">
-    Token-only authentication • Swagger-driven code generation • Structured JSON output
+    Token or OAuth authentication • Swagger-driven code generation • Structured JSON output
   </p>
   <p align="center">
     <a href="https://github.com/awork-io/awk-cli/actions/workflows/ci.yml"><img src="https://img.shields.io/github/actions/workflow/status/awork-io/awk-cli/ci.yml?style=flat-square&label=CI" alt="CI"></a>
@@ -40,17 +40,22 @@ $ awk users list --top 3
 
 ## Quick Start
 
-**1. Set your token**
+**1. Set your token (fastest path)**
 ```bash
 echo "AWORK_TOKEN=your-token-here" > .env
 ```
 
-**2. Verify setup**
+**2. Or login with OAuth (DCR)**
+```bash
+dotnet run --project src/Awk.Cli -- auth login
+```
+
+**3. Verify setup**
 ```bash
 dotnet run --project src/Awk.Cli -- doctor
 ```
 
-**3. Explore**
+**4. Explore**
 ```bash
 dotnet run --project src/Awk.Cli -- --help
 ```
@@ -102,7 +107,9 @@ Output: `src/Awk.Cli/bin/Release/net10.0/<rid>/publish/awork`
 
 ---
 
-## Configuration
+## Authentication
+
+### API Token
 
 Set your awork API token via environment variable or `.env` file:
 
@@ -113,6 +120,40 @@ echo "AWORK_TOKEN=your-token-here" > .env
 ```
 
 Use `--env <PATH>` to load a different `.env` file.
+
+### OAuth (Dynamic Client Registration)
+
+```bash
+awk auth login
+```
+
+This opens a browser and stores an OAuth token + refresh token in the user config file.
+If your tenant requires DCR authorization, provide a token via `AWORK_DCR_TOKEN`.
+Override OAuth settings with `--redirect-uri`, `--scopes`, or env vars:
+`AWORK_OAUTH_REDIRECT_URI`, `AWORK_OAUTH_SCOPES`, `AWORK_OAUTH_CLIENT_ID`.
+
+### Auth Precedence
+
+Default: **API token wins**. Override with:
+
+```bash
+awk --auth-mode oauth users list
+```
+
+Valid modes: `auto` (default), `token`, `oauth`.
+Environment variable: `AWK_AUTH_MODE` or `AWORK_AUTH_MODE`.
+
+### Config File
+
+User config is stored at:
+- macOS/Linux: `~/.config/awork-cli/config.json`
+- Windows: `%APPDATA%\\awork-cli\\config.json`
+
+Override with:
+
+```bash
+awk --config /path/to/config.json auth status
+```
 
 ---
 
@@ -142,6 +183,22 @@ awk users --help
 
 # Get help for a specific command
 awk users get --help
+```
+
+### Auth Commands
+
+```bash
+# OAuth login
+awk auth login
+
+# Save API token
+awk auth login --token "$AWORK_TOKEN"
+
+# Status
+awk auth status
+
+# Logout (clear tokens)
+awk auth logout
 ```
 
 ---
@@ -308,7 +365,7 @@ This makes `awk` trivial to integrate with `jq`, scripts, and AI agents.
 │                       Awk.Cli                               │
 │                  (Spectre.Console.Cli)                      │
 │                                                             │
-│   • Token authentication                                    │
+│   • Token + OAuth authentication (DCR)                      │
 │   • Parameter validation                                    │
 │   • JSON envelope output                                    │
 └─────────────────────────────────────────────────────────────┘
@@ -353,6 +410,7 @@ dotnet test
 ./scripts/test-cli-names.sh   # Command naming consistency
 ./scripts/test-example.sh     # Example command validation
 ./scripts/test-params.sh      # Parameter handling
+./scripts/test-auth.sh        # Auth flows (token)
 ./scripts/test-unit.sh        # Unit tests
 ```
 

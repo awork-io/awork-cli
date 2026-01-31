@@ -9,7 +9,7 @@ internal sealed class DoctorCommand : CommandBase<BaseSettings>
     {
         try
         {
-            var client = CreateClient(settings);
+            var client = await CreateClient(settings, cancellationToken);
             var result = await client.GetMe(cancellationToken: cancellationToken);
             return Output(result);
         }

@@ -12,6 +12,30 @@ namespace Awk.CodeGen;
 [Generator]
 public sealed class SwaggerClientGenerator : ISourceGenerator
 {
+    private static readonly HashSet<string> BaseSettingsPropertyNames = new(StringComparer.OrdinalIgnoreCase)
+    {
+        "EnvFile",
+        "BaseUrl",
+        "Token",
+        "AuthMode",
+        "ConfigPath",
+        "Body",
+        "Set",
+        "SetJson"
+    };
+
+    private static readonly HashSet<string> BaseOptionNames = new(StringComparer.OrdinalIgnoreCase)
+    {
+        "env",
+        "base-url",
+        "token",
+        "auth-mode",
+        "config",
+        "body",
+        "set",
+        "set-json"
+    };
+
     public void Initialize(GeneratorInitializationContext context)
     {
     }
@@ -297,6 +321,7 @@ public sealed class SwaggerClientGenerator : ISourceGenerator
                 sb.AppendLine();
 
                 var reserved = new HashSet<string>(pathParams.Concat(queryParams).Select(p => p.PropertyName), StringComparer.OrdinalIgnoreCase);
+                reserved.UnionWith(BaseSettingsPropertyNames);
                 if (op.BodyProperties is not null)
                 {
                     foreach (var bodyProp in op.BodyProperties.Where(p => p.Kind is BodyPropertyKind.Scalar or BodyPropertyKind.Array))
@@ -323,7 +348,7 @@ public sealed class SwaggerClientGenerator : ISourceGenerator
             sb.AppendLine("    {");
             sb.AppendLine("        try");
             sb.AppendLine("        {");
-            sb.AppendLine("            var client = CreateClient(settings);");
+            sb.AppendLine("            var client = await CreateClient(settings, cancellationToken);");
 
             foreach (var param in pathParams)
             {
@@ -363,6 +388,7 @@ public sealed class SwaggerClientGenerator : ISourceGenerator
                 sb.AppendLine("            var setJsonPairs = new List<string>();");
 
                 var reserved = new HashSet<string>(pathParams.Concat(queryParams).Select(p => p.PropertyName), StringComparer.OrdinalIgnoreCase);
+                reserved.UnionWith(BaseSettingsPropertyNames);
                 if (op.BodyProperties is not null)
                 {
                     foreach (var bodyProp in op.BodyProperties.Where(p => p.Kind is BodyPropertyKind.Scalar or BodyPropertyKind.Array))
@@ -1341,8 +1367,12 @@ public sealed class SwaggerClientGenerator : ISourceGenerator
             }
 
             var identifier = SanitizeIdentifier(name!);
-            var propertyName = SanitizeIdentifier(ToPascalCase(name!));
+            var propertyName = AvoidBaseSettingsConflict(SanitizeIdentifier(ToPascalCase(name!)));
             var optionName = ToKebabCase(name!);
+            if (string.Equals(location, "query", StringComparison.OrdinalIgnoreCase))
+            {
+                optionName = AvoidBaseOptionConflict(optionName);
+            }
             list.Add(new ParameterInfo(name!, location!, identifier, propertyName, required, isArray, optionName));
         }
     }
@@ -1357,7 +1387,7 @@ public sealed class SwaggerClientGenerator : ISourceGenerator
         {
             if (existing.Contains(name)) continue;
             var identifier = SanitizeIdentifier(name);
-            var propertyName = SanitizeIdentifier(ToPascalCase(name));
+            var propertyName = AvoidBaseSettingsConflict(SanitizeIdentifier(ToPascalCase(name)));
             var optionName = ToKebabCase(name);
             list.Add(new ParameterInfo(name, "path", identifier, propertyName, Required: true, IsArray: false, optionName));
         }
@@ -1582,6 +1612,18 @@ public sealed class SwaggerClientGenerator : ISourceGenerator
             "string" or "int" or "double" or "long" or "short" or "float" or "decimal" or "bool" or "object" or
             "return" or "event" or "new" or "default" or "base" or "params" or "out" or "ref" or "in" or
             "void" or "partial" or "record" or "interface" or "struct" or "enum" or "using" or "static";
+    }
+
+    private static string AvoidBaseSettingsConflict(string propertyName)
+    {
+        if (!BaseSettingsPropertyNames.Contains(propertyName)) return propertyName;
+        return propertyName + "Param";
+    }
+
+    private static string AvoidBaseOptionConflict(string optionName)
+    {
+        if (!BaseOptionNames.Contains(optionName)) return optionName;
+        return "param-" + optionName;
     }
 
     private sealed record ParameterInfo(
