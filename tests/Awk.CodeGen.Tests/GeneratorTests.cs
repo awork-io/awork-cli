@@ -4,6 +4,7 @@ using System.Collections.Immutable;
 using System.IO;
 using System.Linq;
 using System.Text;
+using System.Text.Json;
 using System.Text.RegularExpressions;
 using Microsoft.CodeAnalysis;
 using Microsoft.CodeAnalysis.CSharp;
@@ -136,6 +137,128 @@ public sealed class GeneratorTests
     }
 
     [Fact]
+    public void CliHierarchy_DomainOrderMatchesConfig()
+    {
+        var cli = GeneratedSources.Value.Cli;
+        var domains = ExtractRegisterDomains(cli);
+        var expected = GetDomainOrder()
+            .Where(domains.Contains)
+            .ToList();
+
+        Assert.Equal(expected, domains);
+    }
+
+    [Fact]
+    public void SwaggerTags_AllMappedToKnownDomains()
+    {
+        var tags = GetSwaggerTags();
+        var allowed = new HashSet<string>(GetDomainOrder(), StringComparer.OrdinalIgnoreCase)
+        {
+            "auth"
+        };
+
+        var missing = new List<string>();
+        var unknown = new List<string>();
+
+        foreach (var tag in tags)
+        {
+            var domain = ResolveDomain(tag);
+            if (string.Equals(domain, "misc", StringComparison.OrdinalIgnoreCase))
+            {
+                missing.Add(tag);
+                continue;
+            }
+
+            if (!allowed.Contains(domain))
+            {
+                unknown.Add($"{tag}->{domain}");
+            }
+        }
+
+        Assert.True(missing.Count == 0, $"Unmapped tags: {string.Join(", ", missing)}");
+        Assert.True(unknown.Count == 0, $"Unexpected domains: {string.Join(", ", unknown)}");
+    }
+
+    [Fact]
+    public void SwaggerTags_RootTagsHaveNoSubBranch()
+    {
+        var rootTags = GetRootTags();
+        foreach (var tag in rootTags)
+        {
+            var info = ResolveTagInfo(tag);
+            Assert.Null(info.SubTag);
+        }
+    }
+
+    [Fact]
+    public void SwaggerTags_NonRootTagsHaveSubBranch()
+    {
+        var tags = GetSwaggerTags();
+        var rootTags = GetRootTags();
+
+        foreach (var tag in tags)
+        {
+            if (rootTags.Contains(tag)) continue;
+            var info = ResolveTagInfo(tag);
+            Assert.False(string.IsNullOrWhiteSpace(info.SubTag), $"Missing sub-branch for {tag}");
+        }
+    }
+
+    [Fact]
+    public void SwaggerTags_OverridesHaveExpectedSubBranches()
+    {
+        var overrides = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase)
+        {
+            ["ApiUsers"] = "api-users",
+            ["ChecklistItems"] = "checklist-items",
+            ["CompanyFiles"] = "company-files",
+            ["CompanyTags"] = "company-tags",
+            ["CommentFiles"] = "comment-files",
+            ["FileUpload"] = "upload",
+            ["AbsenceRegions"] = "absence-regions"
+        };
+
+        foreach (var pair in overrides)
+        {
+            var info = ResolveTagInfo(pair.Key);
+            Assert.Equal(pair.Value, info.SubTag);
+        }
+    }
+
+    [Fact]
+    public void CliRegisterAuth_SeparatedFromMainRegister()
+    {
+        var cli = GeneratedSources.Value.Cli;
+        var register = ExtractRegisterBody(cli);
+        var auth = ExtractRegisterAuthBody(cli);
+
+        Assert.DoesNotContain("Accounts", register);
+        Assert.DoesNotContain("ClientApplications", register);
+        Assert.True(auth.Contains("Accounts") || auth.Contains("ClientApplications"));
+    }
+
+    [Fact]
+    public void CliSubBranches_ExistForSwaggerTags()
+    {
+        var cli = GeneratedSources.Value.Cli;
+        var tags = GetSwaggerTags();
+        var rootTags = GetRootTags();
+        var subTags = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+
+        foreach (var tag in tags)
+        {
+            if (rootTags.Contains(tag)) continue;
+            var info = ResolveTagInfo(tag);
+            if (!string.IsNullOrWhiteSpace(info.SubTag)) subTags.Add(info.SubTag!);
+        }
+
+        foreach (var subTag in subTags)
+        {
+            Assert.Contains($"AddBranch(\"{subTag}\"", cli);
+        }
+    }
+
+    [Fact]
     public void CliCommandNames_HaveExpectedSamples()
     {
         var cli = GeneratedSources.Value.Cli;
@@ -215,6 +338,18 @@ public sealed class GeneratorTests
     }
 
     [Fact]
+    public void Dtos_ContainCommonTypes()
+    {
+        var dtos = GeneratedSources.Value.Dtos;
+        Assert.Contains("JsonPropertyName", dtos);
+        Assert.Contains("List<", dtos);
+        Assert.Contains("Dictionary<string, object?>", dtos);
+        Assert.Contains("DateTimeOffset", dtos);
+        Assert.Contains("Guid", dtos);
+    }
+
+
+    [Fact]
     public void ClientMethodNames_AvoidUglyPatterns()
     {
         var methods = ExtractClientMethodNames(GeneratedSources.Value.Client).ToList();
@@ -251,6 +386,94 @@ public sealed class GeneratorTests
         }
     }
 
+    private static IReadOnlyList<string> GetDomainOrder()
+    {
+        return GetPrivateStaticField<string[]>("DomainOrder");
+    }
+
+    private static HashSet<string> GetRootTags()
+    {
+        return GetPrivateStaticField<HashSet<string>>("RootTags");
+    }
+
+    private static string ResolveDomain(string tag)
+    {
+        var method = typeof(SwaggerClientGenerator).GetMethod("ResolveDomain", System.Reflection.BindingFlags.NonPublic | System.Reflection.BindingFlags.Static);
+        return (string)method!.Invoke(null, new object[] { tag })!;
+    }
+
+    private static (string Domain, string? SubTag) ResolveTagInfo(string tag)
+    {
+        var method = typeof(SwaggerClientGenerator).GetMethod("ResolveTagGroupInfo", System.Reflection.BindingFlags.NonPublic | System.Reflection.BindingFlags.Static);
+        var info = method!.Invoke(null, new object[] { tag })!;
+        var infoType = info.GetType();
+        var domain = (string)infoType.GetProperty("Domain")!.GetValue(info)!;
+        var subTag = (string?)infoType.GetProperty("SubTag")!.GetValue(info);
+        return (domain, subTag);
+    }
+
+    private static T GetPrivateStaticField<T>(string name)
+    {
+        var field = typeof(SwaggerClientGenerator).GetField(name, System.Reflection.BindingFlags.NonPublic | System.Reflection.BindingFlags.Static);
+        return (T)field!.GetValue(null)!;
+    }
+
+    private static HashSet<string> GetSwaggerTags()
+    {
+        var swaggerPath = FindFileUpwards("swagger.json");
+        var swaggerText = File.ReadAllText(swaggerPath);
+        using var doc = JsonDocument.Parse(swaggerText);
+
+        var tags = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+        if (!doc.RootElement.TryGetProperty("paths", out var paths)) return tags;
+
+        foreach (var path in paths.EnumerateObject())
+        {
+            foreach (var op in path.Value.EnumerateObject())
+            {
+                if (!op.Value.TryGetProperty("tags", out var opTags) || opTags.ValueKind != JsonValueKind.Array) continue;
+                foreach (var tag in opTags.EnumerateArray())
+                {
+                    if (tag.ValueKind == JsonValueKind.String)
+                    {
+                        var value = tag.GetString();
+                        if (!string.IsNullOrWhiteSpace(value)) tags.Add(value);
+                    }
+                }
+            }
+        }
+
+        return tags;
+    }
+
+    private static List<string> ExtractRegisterDomains(string cli)
+    {
+        var register = ExtractRegisterBody(cli);
+        var matches = Regex.Matches(register, @"config.AddBranch\(""([^""]+)""");
+        var domains = new List<string>();
+        foreach (Match match in matches)
+        {
+            domains.Add(match.Groups[1].Value);
+        }
+
+        return domains;
+    }
+
+    private static string ExtractRegisterBody(string cli)
+    {
+        var start = cli.IndexOf("internal static void Register(IConfigurator config)", StringComparison.Ordinal);
+        var end = cli.IndexOf("internal static void RegisterAuth", StringComparison.Ordinal);
+        if (start < 0 || end < 0 || end <= start) return cli;
+        return cli.Substring(start, end - start);
+    }
+
+    private static string ExtractRegisterAuthBody(string cli)
+    {
+        var start = cli.IndexOf("internal static void RegisterAuth", StringComparison.Ordinal);
+        if (start < 0) return cli;
+        return cli.Substring(start);
+    }
+
     private static readonly Lazy<GeneratedSourceSet> GeneratedSources = new(GenerateSources);
 
     private static GeneratedSourceSet GenerateSources()
@@ -280,7 +503,8 @@ public sealed class GeneratorTests
         var sources = result.Results[0].GeneratedSources;
         var cli = GetSource(sources, "AworkCli.g.cs");
         var client = GetSource(sources, "AworkClient.Operations.g.cs");
-        return new GeneratedSourceSet(cli, client);
+        var dtos = GetSource(sources, "AworkDtos.g.cs");
+        return new GeneratedSourceSet(cli, client, dtos);
     }
 
     private static string GetSource(ImmutableArray<GeneratedSourceResult> sources, string hintName)
@@ -329,7 +553,7 @@ public sealed class GeneratorTests
         throw new FileNotFoundException($"Could not find {fileName} above {AppContext.BaseDirectory}");
     }
 
-    private sealed record GeneratedSourceSet(string Cli, string Client);
+    private sealed record GeneratedSourceSet(string Cli, string Client, string Dtos);
 }
 
 internal sealed class InMemoryAdditionalText : AdditionalText
