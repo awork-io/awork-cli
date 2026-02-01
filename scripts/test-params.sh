@@ -110,9 +110,9 @@ run_checked search get-search \
   --top 3 \
   --include-closed-and-stuck true >/dev/null
 
-run_checked custom-fields list-custom-field-definitions --include-linked-project-ids true >/dev/null
+run_checked workspace custom-fields list-custom-field-definitions --include-linked-project-ids true >/dev/null
 
-run_checked teams create --body "{\"name\":\"Param Team Inline ${RUN_ID}\",\"color\":\"orange\"}" >/dev/null
+run_checked workspace teams create --body "{\"name\":\"Param Team Inline ${RUN_ID}\",\"color\":\"orange\"}" >/dev/null
 
 TEAM_FILE="$(mktemp)"
 cat > "$TEAM_FILE" <<'JSON'
@@ -126,13 +126,13 @@ data = json.loads(open(path, "r", encoding="utf-8").read())
 data["name"] = data["name"].replace("PLACEHOLDER", run_id)
 open(path, "w", encoding="utf-8").write(json.dumps(data))
 PY
-run_checked teams create --body "@$TEAM_FILE" >/dev/null
+run_checked workspace teams create --body "@$TEAM_FILE" >/dev/null
 
-REGIONS_JSON="$(run_checked absence-regions list)"
+REGIONS_JSON="$(run_checked workspace absence-regions list)"
 REGION_ID="$(json_first_id_in_response_array "$REGIONS_JSON")"
 
 if [[ -z "$REGION_ID" ]]; then
-  REGION_JSON="$(run_checked absence-regions create --name "Param Region" --country-code "US")"
+  REGION_JSON="$(run_checked workspace absence-regions create --name "Param Region" --country-code "US")"
   REGION_ID="$(json_get "$REGION_JSON" "response.id")"
 fi
 
@@ -144,7 +144,7 @@ fi
 USER_IDS_FILE="$(mktemp)"
 printf '[\"%s\"]\n' "$USER_ID" > "$USER_IDS_FILE"
 
-run_checked absence-regions users-assign \
+run_checked workspace absence-regions users-assign \
   --set "regionId=$REGION_ID" \
   --set-json "userIds=@$USER_IDS_FILE" >/dev/null
 

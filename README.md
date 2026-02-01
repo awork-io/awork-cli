@@ -164,10 +164,11 @@ awk --config /path/to/config.json auth status
 Commands follow a consistent pattern derived from the Swagger spec:
 
 ```
-awk <resource> <action> [positional-args] [--options]
+awk <domain> [resource] <action> [positional-args] [--options]
 ```
 
-- **Resources** are grouped by Swagger tags: `users`, `tasks`, `projects`, etc.
+- **Domains** are top-level buckets: `users`, `tasks`, `projects`, `times`, `workspace`, ...
+- **Resources** appear as sub-branches when needed (e.g. `users invitations`, `tasks tags`)
 - **Actions** use predictable verbs: `list`, `get`, `create`, `update`, `delete`
 - **Positional args** match path parameters in URL order
 - **Options** are kebab-case query/body parameters
@@ -178,11 +179,11 @@ awk <resource> <action> [positional-args] [--options]
 # List all resource groups
 awk --help
 
-# List actions for a resource
+# List actions for a domain
 awk users --help
 
 # Get help for a specific command
-awk users get --help
+awk users list --help
 ```
 
 ### Auth Commands
@@ -244,12 +245,12 @@ awk tasks create \
 
 ```bash
 # Inline JSON arrays with --set-json
-awk absence-regions users-assign \
+awk workspace absence-regions users-assign \
   --set regionId=550e8400-e29b-41d4-a716-446655440000 \
   --set-json userIds='["user-1","user-2"]'
 
 # JSON arrays from file
-awk absence-regions users-assign \
+awk workspace absence-regions users-assign \
   --set regionId=550e8400-e29b-41d4-a716-446655440000 \
   --set-json userIds=@/tmp/users.json
 

@@ -34,6 +34,155 @@ public sealed class SwaggerClientGenerator : ISourceGenerator
         "set-json"
     };
 
+    private static readonly string[] DomainOrder =
+    {
+        "users",
+        "tasks",
+        "projects",
+        "times",
+        "workspace",
+        "documents",
+        "files",
+        "search",
+        "integrations",
+        "automation"
+    };
+
+    private static readonly Dictionary<string, string> DomainDescriptions = new(StringComparer.OrdinalIgnoreCase)
+    {
+        ["users"] = "Users",
+        ["tasks"] = "Tasks",
+        ["projects"] = "Projects",
+        ["times"] = "Times",
+        ["workspace"] = "Workspace",
+        ["documents"] = "Documents",
+        ["files"] = "Files",
+        ["search"] = "Search",
+        ["integrations"] = "Integrations",
+        ["automation"] = "Automation",
+        ["auth"] = "Auth"
+    };
+
+    private static readonly Dictionary<string, string> TagDomainMap = new(StringComparer.OrdinalIgnoreCase)
+    {
+        ["Accounts"] = "auth",
+        ["ClientApplications"] = "auth",
+
+        ["Users"] = "users",
+        ["ApiUsers"] = "users",
+        ["Invitations"] = "users",
+        ["UserTags"] = "users",
+        ["UserFiles"] = "users",
+        ["UserCapacities"] = "users",
+
+        ["Tasks"] = "tasks",
+        ["PrivateTasks"] = "tasks",
+        ["AssignedTasks"] = "tasks",
+        ["TaskComments"] = "tasks",
+        ["TaskFiles"] = "tasks",
+        ["TaskTags"] = "tasks",
+        ["TaskLists"] = "tasks",
+        ["TaskSchedules"] = "tasks",
+        ["TaskStatuses"] = "tasks",
+        ["TaskViews"] = "tasks",
+        ["TaskBundles"] = "tasks",
+        ["TaskDependencies"] = "tasks",
+        ["TaskDependencyTemplates"] = "tasks",
+        ["TaskTemplates"] = "tasks",
+        ["TaskTemplateFiles"] = "tasks",
+        ["ChecklistItems"] = "tasks",
+
+        ["Projects"] = "projects",
+        ["ProjectTasks"] = "projects",
+        ["ProjectMembers"] = "projects",
+        ["ProjectComments"] = "projects",
+        ["ProjectFiles"] = "projects",
+        ["ProjectTags"] = "projects",
+        ["ProjectStatuses"] = "projects",
+        ["ProjectRoles"] = "projects",
+        ["ProjectTypes"] = "projects",
+        ["ProjectMilestones"] = "projects",
+        ["ProjectMilestoneTemplates"] = "projects",
+        ["ProjectTemplates"] = "projects",
+        ["ProjectTemplateFiles"] = "projects",
+        ["ProjectTemplateTags"] = "projects",
+        ["Project Automations"] = "projects",
+        ["Project Template Automations"] = "projects",
+        ["Retainers"] = "projects",
+
+        ["TimeEntries"] = "times",
+        ["TimeBookings"] = "times",
+        ["TimeReports"] = "times",
+        ["TimeTracking"] = "times",
+        ["Workload"] = "times",
+        ["Absences"] = "times",
+
+        ["Workspaces"] = "workspace",
+        ["WorkspaceFiles"] = "workspace",
+        ["WorkspaceAbsences"] = "workspace",
+        ["Teams"] = "workspace",
+        ["Roles"] = "workspace",
+        ["Permissions"] = "workspace",
+        ["CustomFields"] = "workspace",
+        ["TypeOfWork"] = "workspace",
+        ["Companies"] = "workspace",
+        ["CompanyFiles"] = "workspace",
+        ["CompanyTags"] = "workspace",
+        ["Dashboards"] = "workspace",
+        ["Activities"] = "workspace",
+        ["AbsenceRegions"] = "workspace",
+
+        ["Documents"] = "documents",
+        ["DocumentFiles"] = "documents",
+        ["DocumentComments"] = "documents",
+        ["DocumentSpaces"] = "documents",
+
+        ["Files"] = "files",
+        ["FileUpload"] = "files",
+        ["TemporaryFiles"] = "files",
+        ["SharedFiles"] = "files",
+        ["Images"] = "files",
+        ["CommentFiles"] = "files",
+
+        ["Search"] = "search",
+
+        ["Webhooks"] = "integrations",
+
+        ["Autopilot"] = "automation"
+    };
+
+    private static readonly Dictionary<string, string> TagSubOverrides = new(StringComparer.OrdinalIgnoreCase)
+    {
+        ["ApiUsers"] = "api-users",
+        ["ChecklistItems"] = "checklist-items",
+        ["CompanyFiles"] = "company-files",
+        ["CompanyTags"] = "company-tags",
+        ["CommentFiles"] = "comment-files",
+        ["FileUpload"] = "upload"
+    };
+
+    private static readonly HashSet<string> RootTags = new(StringComparer.OrdinalIgnoreCase)
+    {
+        "Users",
+        "Tasks",
+        "Projects",
+        "Workspaces",
+        "Documents",
+        "Files",
+        "Search"
+    };
+
+    private static readonly Dictionary<string, string> DomainPrefixes = new(StringComparer.OrdinalIgnoreCase)
+    {
+        ["users"] = "User",
+        ["tasks"] = "Task",
+        ["projects"] = "Project",
+        ["times"] = "Time",
+        ["workspace"] = "Workspace",
+        ["documents"] = "Document",
+        ["files"] = "File"
+    };
+
     public void Initialize(GeneratorInitializationContext context)
     {
     }
@@ -91,6 +240,8 @@ public sealed class SwaggerClientGenerator : ISourceGenerator
     private static string GenerateClient(JsonElement paths, Dictionary<string, JsonElement> schemaMap)
     {
         var operations = CollectOperationInfos(paths, schemaMap);
+
+
         var sb = new StringBuilder();
         sb.AppendLine("#nullable enable");
         sb.AppendLine("using System;");
@@ -219,6 +370,14 @@ public sealed class SwaggerClientGenerator : ISourceGenerator
                 commandInfos.Add(new CommandInfo(op, commandName, className));
             }
         }
+        var tagInfos = commandInfos
+            .Select(c => c.Operation.Tag)
+            .Distinct(StringComparer.OrdinalIgnoreCase)
+            .ToDictionary(tag => tag, ResolveTagGroupInfo, StringComparer.OrdinalIgnoreCase);
+
+        var domainGroups = commandInfos
+            .GroupBy(c => tagInfos[c.Operation.Tag].Domain, StringComparer.OrdinalIgnoreCase)
+            .ToDictionary(g => g.Key, g => g.ToList(), StringComparer.OrdinalIgnoreCase);
 
         var sb = new StringBuilder();
         sb.AppendLine("#nullable enable");
@@ -235,28 +394,119 @@ public sealed class SwaggerClientGenerator : ISourceGenerator
         sb.AppendLine("    internal static void Register(IConfigurator config)");
         sb.AppendLine("    {");
 
-        foreach (var group in commandInfos.GroupBy(c => c.Operation.Tag).OrderBy(g => g.Key))
-        {
-            var tag = group.Key;
-            var tagSlug = ToKebabCase(tag);
-            sb.AppendLine($"        config.AddBranch(\"{tagSlug}\", branch =>");
-            sb.AppendLine("        {");
-            sb.AppendLine($"            branch.SetDescription(\"{EscapeString(tag)}\");");
+        var orderedDomains = domainGroups.Keys
+            .OrderBy(DomainSortKey)
+            .ThenBy(d => d, StringComparer.OrdinalIgnoreCase)
+            .ToList();
 
-            foreach (var command in group.OrderBy(c => c.CommandName))
+        foreach (var domain in orderedDomains)
+        {
+            if (string.Equals(domain, "auth", StringComparison.OrdinalIgnoreCase)) continue;
+            if (!domainGroups.TryGetValue(domain, out var domainCommands)) continue;
+
+            sb.AppendLine($"        config.AddBranch(\"{domain}\", branch =>");
+            sb.AppendLine("        {");
+            sb.AppendLine($"            branch.SetDescription(\"{EscapeString(GetDomainDescription(domain))}\");");
+
+            var tagGroups = domainCommands
+                .GroupBy(c => c.Operation.Tag, StringComparer.OrdinalIgnoreCase)
+                .OrderBy(g => tagInfos[g.Key].SubTag ?? tagInfos[g.Key].Tag, StringComparer.OrdinalIgnoreCase);
+
+            foreach (var tagGroup in tagGroups)
             {
-                if (!string.IsNullOrWhiteSpace(command.Operation.Summary))
+                var tagInfo = tagInfos[tagGroup.Key];
+                if (tagInfo.SubTag is null)
                 {
-                    sb.AppendLine($"            branch.AddCommand<{command.ClassName}>(\"{command.CommandName}\")");
-                    sb.AppendLine($"                .WithDescription(\"{EscapeString(command.Operation.Summary!)}\");");
+                    foreach (var command in tagGroup.OrderBy(c => c.CommandName))
+                    {
+                        if (!string.IsNullOrWhiteSpace(command.Operation.Summary))
+                        {
+                            sb.AppendLine($"            branch.AddCommand<{command.ClassName}>(\"{command.CommandName}\")");
+                            sb.AppendLine($"                .WithDescription(\"{EscapeString(command.Operation.Summary!)}\");");
+                        }
+                        else
+                        {
+                            sb.AppendLine($"            branch.AddCommand<{command.ClassName}>(\"{command.CommandName}\");");
+                        }
+                    }
                 }
                 else
                 {
-                    sb.AppendLine($"            branch.AddCommand<{command.ClassName}>(\"{command.CommandName}\");");
+                    sb.AppendLine($"            branch.AddBranch(\"{tagInfo.SubTag}\", sub =>");
+                    sb.AppendLine("            {");
+                    sb.AppendLine($"                sub.SetDescription(\"{EscapeString(tagInfo.Tag)}\");");
+
+                    foreach (var command in tagGroup.OrderBy(c => c.CommandName))
+                    {
+                        if (!string.IsNullOrWhiteSpace(command.Operation.Summary))
+                        {
+                            sb.AppendLine($"                sub.AddCommand<{command.ClassName}>(\"{command.CommandName}\")");
+                            sb.AppendLine($"                    .WithDescription(\"{EscapeString(command.Operation.Summary!)}\");");
+                        }
+                        else
+                        {
+                            sb.AppendLine($"                sub.AddCommand<{command.ClassName}>(\"{command.CommandName}\");");
+                        }
+                    }
+
+                    sb.AppendLine("            });");
                 }
             }
 
             sb.AppendLine("        });");
+        }
+
+        sb.AppendLine("    }");
+        sb.AppendLine();
+        sb.AppendLine("    internal static void RegisterAuth(IConfigurator<CommandSettings> branch)");
+        sb.AppendLine("    {");
+
+        if (domainGroups.TryGetValue("auth", out var authCommands))
+        {
+            var authTagGroups = authCommands
+                .GroupBy(c => c.Operation.Tag, StringComparer.OrdinalIgnoreCase)
+                .OrderBy(g => tagInfos[g.Key].SubTag ?? tagInfos[g.Key].Tag, StringComparer.OrdinalIgnoreCase);
+
+            foreach (var tagGroup in authTagGroups)
+            {
+                var tagInfo = tagInfos[tagGroup.Key];
+                if (tagInfo.SubTag is null)
+                {
+                    foreach (var command in tagGroup.OrderBy(c => c.CommandName))
+                    {
+                        if (!string.IsNullOrWhiteSpace(command.Operation.Summary))
+                        {
+                            sb.AppendLine($"        branch.AddCommand<{command.ClassName}>(\"{command.CommandName}\")");
+                            sb.AppendLine($"            .WithDescription(\"{EscapeString(command.Operation.Summary!)}\");");
+                        }
+                        else
+                        {
+                            sb.AppendLine($"        branch.AddCommand<{command.ClassName}>(\"{command.CommandName}\");");
+                        }
+                    }
+                }
+                else
+                {
+                    sb.AppendLine($"        branch.AddBranch(\"{tagInfo.SubTag}\", sub =>");
+                    sb.AppendLine("        {");
+                    sb.AppendLine($"            sub.SetDescription(\"{EscapeString(tagInfo.Tag)}\");");
+
+                    foreach (var command in tagGroup.OrderBy(c => c.CommandName))
+                    {
+                        if (!string.IsNullOrWhiteSpace(command.Operation.Summary))
+                        {
+                            sb.AppendLine($"            sub.AddCommand<{command.ClassName}>(\"{command.CommandName}\")");
+                            sb.AppendLine($"                .WithDescription(\"{EscapeString(command.Operation.Summary!)}\");");
+                        }
+                        else
+                        {
+                            sb.AppendLine($"            sub.AddCommand<{command.ClassName}>(\"{command.CommandName}\");");
+                        }
+                    }
+
+                    sb.AppendLine("        });");
+                }
+            }
         }
 
         sb.AppendLine("    }");
@@ -1582,6 +1832,11 @@ public sealed class SwaggerClientGenerator : ISourceGenerator
         }
 
         var lower = word.ToLowerInvariant();
+        if (lower == "workspace" || lower == "workspaces")
+        {
+            return new List<string> { lower };
+        }
+
         var result = new List<string>();
         var remaining = lower;
 
@@ -1615,6 +1870,7 @@ public sealed class SwaggerClientGenerator : ISourceGenerator
 
     private static List<string> SplitWords(string input)
     {
+        input = input.Replace("WorkSpace", "Workspace");
         var result = new List<string>();
         var current = new StringBuilder();
         foreach (var ch in input)
@@ -1691,6 +1947,74 @@ public sealed class SwaggerClientGenerator : ISourceGenerator
         if (!BaseOptionNames.Contains(optionName)) return optionName;
         return "param-" + optionName;
     }
+
+    private static string ResolveDomain(string tag)
+    {
+        if (TagDomainMap.TryGetValue(tag, out var domain)) return domain;
+        return "misc";
+    }
+
+    private static TagGroupInfo ResolveTagGroupInfo(string tag)
+    {
+        var domain = ResolveDomain(tag);
+        var subTag = ResolveSubTag(tag, domain);
+        return new TagGroupInfo(tag, domain, subTag);
+    }
+
+    private static string? ResolveSubTag(string tag, string domain)
+    {
+        if (RootTags.Contains(tag)) return null;
+        if (TagSubOverrides.TryGetValue(tag, out var overrideValue)) return overrideValue;
+
+        var trimmed = tag;
+        if (DomainPrefixes.TryGetValue(domain, out var prefix))
+        {
+            trimmed = TrimPrefix(trimmed, prefix);
+        }
+
+        if (domain.Equals("tasks", StringComparison.OrdinalIgnoreCase) && trimmed.EndsWith("Tasks", StringComparison.OrdinalIgnoreCase))
+        {
+            trimmed = trimmed.Substring(0, trimmed.Length - 5);
+        }
+
+        if (domain.Equals("files", StringComparison.OrdinalIgnoreCase) && trimmed.EndsWith("Files", StringComparison.OrdinalIgnoreCase))
+        {
+            trimmed = trimmed.Substring(0, trimmed.Length - 5);
+        }
+
+        if (domain.Equals("users", StringComparison.OrdinalIgnoreCase) && trimmed.EndsWith("Users", StringComparison.OrdinalIgnoreCase))
+        {
+            trimmed = trimmed.Substring(0, trimmed.Length - 5);
+        }
+
+        trimmed = trimmed.Trim();
+        if (string.IsNullOrWhiteSpace(trimmed)) return null;
+        return ToKebabCase(trimmed);
+    }
+
+    private static string TrimPrefix(string value, string prefix)
+    {
+        if (!value.StartsWith(prefix, StringComparison.OrdinalIgnoreCase)) return value;
+        var trimmed = value.Substring(prefix.Length);
+        return trimmed.StartsWith(" ", StringComparison.Ordinal) ? trimmed.Substring(1) : trimmed;
+    }
+
+    private static string GetDomainDescription(string domain)
+    {
+        return DomainDescriptions.TryGetValue(domain, out var desc) ? desc : domain;
+    }
+
+    private static int DomainSortKey(string domain)
+    {
+        for (var i = 0; i < DomainOrder.Length; i++)
+        {
+            if (string.Equals(DomainOrder[i], domain, StringComparison.OrdinalIgnoreCase)) return i;
+        }
+
+        return int.MaxValue;
+    }
+
+    private sealed record TagGroupInfo(string Tag, string Domain, string? SubTag);
 
     private sealed record ParameterInfo(
         string Name,

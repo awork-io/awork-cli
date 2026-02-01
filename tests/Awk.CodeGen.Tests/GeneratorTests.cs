@@ -64,6 +64,15 @@ public sealed class GeneratorTests
         Assert.True(mistakes.Count == 0, $"Missing kebab splits: {string.Join(", ", mistakes)}");
     }
 
+
+    [Fact]
+    public void CliNames_WorkspaceNotSplit()
+    {
+        var cli = GeneratedSources.Value.Cli;
+        Assert.DoesNotContain("work-space", cli);
+        Assert.Contains("--workspace-id", cli);
+    }
+
     [Fact]
     public void CliOptionNames_NoWordSplitMistakes()
     {
@@ -111,14 +120,30 @@ public sealed class GeneratorTests
     }
 
     [Fact]
+    public void CliHierarchy_UsesDomains()
+    {
+        var cli = GeneratedSources.Value.Cli;
+        Assert.Contains("config.AddBranch(\"users\"", cli);
+        Assert.Contains("config.AddBranch(\"tasks\"", cli);
+        Assert.Contains("config.AddBranch(\"projects\"", cli);
+        Assert.Contains("config.AddBranch(\"times\"", cli);
+        Assert.Contains("config.AddBranch(\"workspace\"", cli);
+        Assert.Contains("config.AddBranch(\"documents\"", cli);
+        Assert.Contains("config.AddBranch(\"files\"", cli);
+        Assert.Contains("config.AddBranch(\"search\"", cli);
+        Assert.Contains("config.AddBranch(\"integrations\"", cli);
+        Assert.Contains("config.AddBranch(\"automation\"", cli);
+    }
+
+    [Fact]
     public void CliCommandNames_HaveExpectedSamples()
     {
         var cli = GeneratedSources.Value.Cli;
         Assert.Contains("branch.AddCommand<GetUsers>(\"list\")", cli);
         Assert.Contains("branch.AddCommand<GetMe>(\"me\")", cli);
-        Assert.Contains("branch.AddCommand<PostProjectDeleteTagsByProjectId>(\"delete-project-tags\")", cli);
-        Assert.Contains("branch.AddCommand<PostUsersDeleteTags>(\"delete-tags\")", cli);
-        Assert.Contains("branch.AddCommand<PostTasksChangeBaseTypes>(\"change-base-types\")", cli);
+        Assert.Contains("branch.AddBranch(\"invitations\"", cli);
+        Assert.Contains("branch.AddBranch(\"absence-regions\"", cli);
+        Assert.Contains("branch.AddBranch(\"tags\"", cli);
     }
 
     [Fact]

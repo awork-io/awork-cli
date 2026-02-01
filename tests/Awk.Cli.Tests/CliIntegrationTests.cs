@@ -75,6 +75,7 @@ public sealed class CliIntegrationTests
 
         var result = await RunCliAsync(
             server.BaseUri,
+            "workspace",
             "absence-regions",
             "users-assign",
             "--set",
@@ -105,7 +106,8 @@ public sealed class CliIntegrationTests
 
         var result = await RunCliAsync(
             server.BaseUri,
-            "task-tags",
+            "tasks",
+            "tags",
             "tasks-update-tags",
             "--set",
             "newTag.name=Priority");
@@ -223,6 +225,7 @@ public sealed class CliIntegrationTests
 
         var result = await RunCliAsync(
             server.BaseUri,
+            "workspace",
             "absence-regions",
             "users-assign",
             "--set",

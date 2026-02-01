@@ -128,11 +128,11 @@ if [[ -z "$USER_ID" || -z "$WORKSPACE_ID" ]]; then
   exit 1
 fi
 
-TEAMS_JSON="$(run_checked teams list)"
+TEAMS_JSON="$(run_checked workspace teams list)"
 TEAM_ID="$(json_first_id_in_response_array "$TEAMS_JSON")"
 
 if [[ -z "$TEAM_ID" ]]; then
-  TEAM_JSON="$(run_checked teams create --name "Agent Team" --color blue)"
+  TEAM_JSON="$(run_checked workspace teams create --name "Agent Team" --color blue)"
   TEAM_ID="$(json_get "$TEAM_JSON" "response.id")"
 fi
 
@@ -141,7 +141,7 @@ if [[ -z "$TEAM_ID" ]]; then
   exit 1
 fi
 
-ROLES_JSON="$(run_checked roles list)"
+ROLES_JSON="$(run_checked workspace roles list)"
 ROLE_ID="$(json_first_id_in_response_array "$ROLES_JSON")"
 
 if [[ -z "$ROLE_ID" ]]; then
@@ -161,11 +161,11 @@ if [[ -z "$TARGET_USER_ID" ]]; then
   exit 1
 fi
 
-REGIONS_JSON="$(run_checked absence-regions list)"
+REGIONS_JSON="$(run_checked workspace absence-regions list)"
 REGION_ID="$(json_first_id_in_response_array "$REGIONS_JSON")"
 
 if [[ -z "$REGION_ID" ]]; then
-  REGION_JSON="$(run_checked absence-regions create --name "Agent Region" --country-code "US")"
+  REGION_JSON="$(run_checked workspace absence-regions create --name "Agent Region" --country-code "US")"
   REGION_ID="$(json_get "$REGION_JSON" "response.id")"
 fi
 
@@ -174,9 +174,9 @@ if [[ -z "$REGION_ID" ]]; then
   exit 1
 fi
 
-run_checked absence-regions users-assign --region-id "$REGION_ID" --user-ids "$USER_ID" >/dev/null
+run_checked workspace absence-regions users-assign --region-id "$REGION_ID" --user-ids "$USER_ID" >/dev/null
 
-run_checked user-capacities update-capacity "$TARGET_USER_ID" \
+run_checked users capacities update-capacity "$TARGET_USER_ID" \
   --mon 28800 --tue 28800 --wed 28800 --thu 28800 --fri 28800 --sat 0 --sun 0 >/dev/null
 
 run_checked users update "$TARGET_USER_ID" --position "AI Agent" >/dev/null
@@ -185,10 +185,10 @@ run_checked tasks create --name "Profile: set working hours" --base-type private
 run_checked tasks create --name "Profile: set holiday region" --base-type private --entity-id "$TARGET_USER_ID" >/dev/null
 run_checked tasks create --name "Team: confirm membership" --base-type private --entity-id "$TARGET_USER_ID" >/dev/null
 
-run_checked teams add-users "$TEAM_ID" --body "[\"$TARGET_USER_ID\"]" >/dev/null
+run_checked workspace teams add-users "$TEAM_ID" --body "[\"$TARGET_USER_ID\"]" >/dev/null
 
 EMAIL="agent+$(date +%s)@example.com"
-INVITE_JSON="$(run_checked invitations create \
+INVITE_JSON="$(run_checked users invitations create \
   --workspace-id "$WORKSPACE_ID" \
   --invitation-flow invite \
   --role-id "$ROLE_ID" \
@@ -200,7 +200,7 @@ INVITE_JSON="$(run_checked invitations create \
 
 INVITE_CODE="$(json_get "$INVITE_JSON" "response.invitationCode")"
 if [[ -n "$INVITE_CODE" ]]; then
-  run_checked invitations accept --invitation-code "$INVITE_CODE" >/dev/null
+  run_checked users invitations accept --invitation-code "$INVITE_CODE" >/dev/null
 fi
 
 echo "ok"

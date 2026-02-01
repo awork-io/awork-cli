@@ -14,6 +14,7 @@ app.Configure(config =>
         auth.AddCommand<AuthLoginCommand>("login");
         auth.AddCommand<AuthStatusCommand>("status");
         auth.AddCommand<AuthLogoutCommand>("logout");
+        GeneratedCli.RegisterAuth(auth);
     });
 
     config.AddCommand<DoctorCommand>("doctor")
