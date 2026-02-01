@@ -14,6 +14,78 @@ namespace Awk.CodeGen.Tests;
 
 public sealed class GeneratorTests
 {
+    // ========================================================================
+    // REGRESSION TESTS - Known mistakes to catch early
+    // ========================================================================
+
+    [Fact]
+    public void CliCommandNames_NoWordSplitMistakes()
+    {
+        // Catch word-splitting bugs where known words get broken up incorrectly
+        var cli = GeneratedSources.Value.Cli;
+        var names = ExtractCommandNames(cli).ToList();
+
+        // These patterns indicate a word was incorrectly split
+        // Pattern must match as a suffix or be followed by end/hyphen
+        var knownBadPatterns = new[]
+        {
+            @"-type-s$",      // "types" split into "type" + "s"
+            @"-list-s$",      // "lists" split into "list" + "s"
+            @"-status-es$",   // "statuses" split incorrectly
+            @"-assign-ees$",  // "assignees" split into "assign" + "ees"
+            @"-archive-d$",   // "archived" split into "archive" + "d"
+            @"-to-p$",        // "top" split into "to" + "p"
+            @"-to-p-",        // "top" in middle of name
+        };
+
+        var regexes = knownBadPatterns.Select(p => new Regex(p)).ToList();
+        var mistakes = names.Where(n => regexes.Any(r => r.IsMatch(n))).ToList();
+        Assert.True(mistakes.Count == 0, $"Word split mistakes found: {string.Join(", ", mistakes.Take(10))}");
+    }
+
+    [Fact]
+    public void CliCommandNames_NoMissingKebabSplits()
+    {
+        // Catch all-lowercase compound words that weren't split into kebab-case
+        var cli = GeneratedSources.Value.Cli;
+        var names = ExtractCommandNames(cli).ToList();
+
+        var shouldNotExist = new[]
+        {
+            "changeprojecttype",   // should be change-project-type
+            "changestatus",        // should be change-status
+            "changebasetypes",     // should be change-base-types
+            "setassignees",        // should be set-assignees
+            "deletecontactinfo",   // should be delete-contact-info
+            "listcontactinfo",     // should be list-contact-info
+        };
+
+        var mistakes = names.Where(n => shouldNotExist.Contains(n)).ToList();
+        Assert.True(mistakes.Count == 0, $"Missing kebab splits: {string.Join(", ", mistakes)}");
+    }
+
+    [Fact]
+    public void CliOptionNames_NoWordSplitMistakes()
+    {
+        // Catch option names with word-splitting bugs
+        var cli = GeneratedSources.Value.Cli;
+
+        var knownBadOptions = new[]
+        {
+            "--to-p",       // should be --top
+            "--assign-ees", // should be --assignees
+        };
+
+        foreach (var bad in knownBadOptions)
+        {
+            Assert.DoesNotContain(bad, cli);
+        }
+    }
+
+    // ========================================================================
+    // COMMAND NAME TESTS
+    // ========================================================================
+
     [Fact]
     public void CliCommandNames_AvoidUglyPatterns()
     {
@@ -47,6 +119,53 @@ public sealed class GeneratorTests
         Assert.Contains("branch.AddCommand<PostProjectDeleteTagsByProjectId>(\"delete-project-tags\")", cli);
         Assert.Contains("branch.AddCommand<PostUsersDeleteTags>(\"delete-tags\")", cli);
         Assert.Contains("branch.AddCommand<PostTasksChangeBaseTypes>(\"change-base-types\")", cli);
+    }
+
+    [Fact]
+    public void CliCommandNames_AreKebabCase()
+    {
+        var cli = GeneratedSources.Value.Cli;
+        var names = ExtractCommandNames(cli).ToList();
+
+        // All command names should be lowercase
+        var withUppercase = names.Where(n => n.Any(char.IsUpper)).ToList();
+        Assert.True(withUppercase.Count == 0, $"Commands with uppercase: {string.Join(", ", withUppercase.Take(10))}");
+
+        // No double hyphens
+        var withDoubleHyphens = names.Where(n => n.Contains("--")).ToList();
+        Assert.True(withDoubleHyphens.Count == 0, $"Commands with double hyphens: {string.Join(", ", withDoubleHyphens.Take(10))}");
+
+        // No leading/trailing hyphens
+        var badHyphens = names.Where(n => n.StartsWith("-") || n.EndsWith("-")).ToList();
+        Assert.True(badHyphens.Count == 0, $"Commands with leading/trailing hyphens: {string.Join(", ", badHyphens.Take(10))}");
+    }
+
+    [Fact]
+    public void CliCommandNames_ConsistentKebabCase()
+    {
+        var cli = GeneratedSources.Value.Cli;
+        var names = ExtractCommandNames(cli).ToList();
+
+        // These swagger paths are all-lowercase, should still become kebab-case
+        var expectedKebab = new[]
+        {
+            "change-project-type",   // was: changeprojecttype
+            "change-status",         // was: changestatus
+            "change-base-types",
+            "change-lists",
+            "change-statuses",
+            "set-assignees",
+            "set-recurrency",
+            "delete-contact-info",
+            "create-contact-info",
+            "list-contact-info",
+            "update-contact-info"
+        };
+
+        foreach (var expected in expectedKebab)
+        {
+            Assert.Contains(expected, names);
+        }
     }
 
     [Fact]

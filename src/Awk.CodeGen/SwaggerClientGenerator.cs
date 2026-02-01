@@ -1537,12 +1537,80 @@ public sealed class SwaggerClientGenerator : ISourceGenerator
         return sb.ToString();
     }
 
+    // Known word segments for splitting all-lowercase compound words
+    // Order matters: longer/more specific words first, plurals before singulars
+    private static readonly string[] KnownWordSegments = new[]
+    {
+        // Compound nouns that should stay together
+        "subtasks", "subtask", "contactinfo",
+        // Plurals and conjugations before base forms
+        "assignees", "statuses", "types", "lists", "tags", "members", "templates",
+        "projects", "tasks", "users", "teams", "companies", "archived", "recurrency",
+        // Verbs
+        "change", "set", "get", "list", "create", "update", "delete", "remove", "add",
+        "assign", "unassign", "activate", "deactivate", "archive", "unarchive",
+        "start", "stop", "enable", "disable", "accept", "reject", "approve", "deny",
+        // Nouns (singulars)
+        "project", "task", "user", "team", "company", "contact", "status", "type",
+        "base", "work", "info", "tag", "parent", "order", "member", "template",
+        // Short words (careful - can cause unwanted splits)
+        "top", "to"
+    };
+
     private static string ToKebabCase(string input)
     {
         if (string.IsNullOrWhiteSpace(input)) return input;
         var parts = SplitWords(input);
         if (parts.Count == 0) return input.ToLowerInvariant();
-        return string.Join("-", parts).ToLowerInvariant();
+
+        // Post-process: split all-lowercase words by known segments
+        var expanded = new List<string>();
+        foreach (var part in parts)
+        {
+            expanded.AddRange(SplitByKnownSegments(part));
+        }
+
+        return string.Join("-", expanded).ToLowerInvariant();
+    }
+
+    private static List<string> SplitByKnownSegments(string word)
+    {
+        // Only split if the word is all lowercase (no camelCase boundaries were found)
+        if (word.Any(char.IsUpper))
+        {
+            return new List<string> { word };
+        }
+
+        var lower = word.ToLowerInvariant();
+        var result = new List<string>();
+        var remaining = lower;
+
+        while (remaining.Length > 0)
+        {
+            var matched = false;
+            foreach (var segment in KnownWordSegments)
+            {
+                if (remaining.StartsWith(segment, StringComparison.Ordinal))
+                {
+                    result.Add(segment);
+                    remaining = remaining.Substring(segment.Length);
+                    matched = true;
+                    break;
+                }
+            }
+
+            if (!matched)
+            {
+                // No known segment found, keep the rest as-is
+                if (remaining.Length > 0)
+                {
+                    result.Add(remaining);
+                }
+                break;
+            }
+        }
+
+        return result;
     }
 
     private static List<string> SplitWords(string input)
