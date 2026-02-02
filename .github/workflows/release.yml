@@ -95,10 +95,64 @@ jobs:
 
     steps:
       - name: Update Homebrew formula
-        uses: mislav/bump-homebrew-formula-action@v3
-        with:
-          formula-name: awk-cli
-          homebrew-tap: awork-io/homebrew-tap
-          download-url: https://github.com/awork-io/awk-cli/releases/download/${{ needs.version.outputs.tag }}/awork-osx-arm64.tar.gz
         env:
-          COMMITTER_TOKEN: ${{ secrets.HOMEBREW_TAP_TOKEN }}
+          GH_TOKEN: ${{ secrets.HOMEBREW_TAP_TOKEN }}
+          VERSION: ${{ needs.version.outputs.version }}
+          TAG: ${{ needs.version.outputs.tag }}
+        run: |
+          set -e
+
+          # Download release assets and compute SHA256
+          curl -sL "https://github.com/awork-io/awk-cli/releases/download/${TAG}/awork-osx-arm64.tar.gz" -o arm64.tar.gz
+          curl -sL "https://github.com/awork-io/awk-cli/releases/download/${TAG}/awork-osx-x64.tar.gz" -o x64.tar.gz
+          curl -sL "https://github.com/awork-io/awk-cli/releases/download/${TAG}/awork-linux-x64.tar.gz" -o linux.tar.gz
+
+          SHA_ARM64=$(sha256sum arm64.tar.gz | cut -d' ' -f1)
+          SHA_X64=$(sha256sum x64.tar.gz | cut -d' ' -f1)
+          SHA_LINUX=$(sha256sum linux.tar.gz | cut -d' ' -f1)
+
+          # Clone homebrew-tap
+          git clone "https://x-access-token:${GH_TOKEN}@github.com/awork-io/homebrew-tap.git" tap
+          cd tap
+
+          # Update formula
+          cat > Formula/awk-cli.rb << EOF
+          class AwkCli < Formula
+            desc "Token-only, swagger-driven CLI for awork"
+            homepage "https://github.com/awork-io/awk-cli"
+            version "${VERSION}"
+            license "MIT"
+
+            on_macos do
+              on_arm do
+                url "https://github.com/awork-io/awk-cli/releases/download/${TAG}/awork-osx-arm64.tar.gz"
+                sha256 "${SHA_ARM64}"
+              end
+
+              on_intel do
+                url "https://github.com/awork-io/awk-cli/releases/download/${TAG}/awork-osx-x64.tar.gz"
+                sha256 "${SHA_X64}"
+              end
+            end
+
+            on_linux do
+              url "https://github.com/awork-io/awk-cli/releases/download/${TAG}/awork-linux-x64.tar.gz"
+              sha256 "${SHA_LINUX}"
+            end
+
+            def install
+              bin.install "awk-cli"
+            end
+
+            test do
+              assert_match "USAGE", shell_output("#{bin}/awk-cli --help")
+            end
+          end
+          EOF
+
+          # Commit and push
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git add Formula/awk-cli.rb
+          git commit -m "awk-cli ${VERSION}"
+          git push
