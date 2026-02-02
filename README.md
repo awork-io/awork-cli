@@ -27,7 +27,7 @@
 | Manual DTO maintenance | Zero hand-written DTOs — all generated from `swagger.json` |
 
 ```
-$ awk users list --top 3
+$ awk-cli users list --top 3
 
 {
   "statusCode": 200,
@@ -67,17 +67,17 @@ echo "AWORK_TOKEN=your-token-here" > .env
 
 **2. Or login with OAuth (DCR)**
 ```bash
-awk auth login
+awk-cli auth login
 ```
 
 **3. Verify setup**
 ```bash
-awk doctor
+awk-cli doctor
 ```
 
 **4. Explore**
 ```bash
-awk --help
+awk-cli --help
 ```
 
 ---
@@ -99,7 +99,7 @@ Use `--env <PATH>` to load a different `.env` file.
 ### OAuth (Dynamic Client Registration)
 
 ```bash
-awk auth login
+awk-cli auth login
 ```
 
 This opens a browser and stores an OAuth token + refresh token in the user config file.
@@ -112,7 +112,7 @@ Override OAuth settings with `--redirect-uri`, `--scopes`, or env vars:
 Default: **API token wins**. Override with:
 
 ```bash
-awk --auth-mode oauth users list
+awk-cli --auth-mode oauth users list
 ```
 
 Valid modes: `auto` (default), `token`, `oauth`.
@@ -127,7 +127,7 @@ User config is stored at:
 Override with:
 
 ```bash
-awk --config /path/to/config.json auth status
+awk-cli --config /path/to/config.json auth status
 ```
 
 ---
@@ -139,7 +139,7 @@ awk --config /path/to/config.json auth status
 Commands follow a consistent pattern derived from the Swagger spec:
 
 ```
-awk <domain> [resource] <action> [positional-args] [--options]
+awk-cli <domain> [resource] <action> [positional-args] [--options]
 ```
 
 - **Domains** are top-level buckets: `users`, `tasks`, `projects`, `times`, `workspace`, ...
@@ -152,29 +152,29 @@ awk <domain> [resource] <action> [positional-args] [--options]
 
 ```bash
 # List all resource groups
-awk --help
+awk-cli --help
 
 # List actions for a domain
-awk users --help
+awk-cli users --help
 
 # Get help for a specific command
-awk users list --help
+awk-cli users list --help
 ```
 
 ### Auth Commands
 
 ```bash
 # OAuth login
-awk auth login
+awk-cli auth login
 
 # Save API token
-awk auth login --token "$AWORK_TOKEN"
+awk-cli auth login --token "$AWORK_TOKEN"
 
 # Status
-awk auth status
+awk-cli auth status
 
 # Logout (clear tokens)
-awk auth logout
+awk-cli auth logout
 ```
 
 ---
@@ -185,13 +185,13 @@ awk auth logout
 
 ```bash
 # List users
-awk users list
+awk-cli users list
 
 # Get user by ID (positional path param)
-awk users get 550e8400-e29b-41d4-a716-446655440000
+awk-cli users get 550e8400-e29b-41d4-a716-446655440000
 
 # Search with filters
-awk search get-search \
+awk-cli search get-search \
   --search-term "agent" \
   --search-types "user" \
   --top 3 \
@@ -202,16 +202,16 @@ awk search get-search \
 
 ```bash
 # Create with inline params
-awk tasks create \
+awk-cli tasks create \
   --name "Welcome" \
   --base-type private \
   --entity-id 550e8400-e29b-41d4-a716-446655440000
 
 # Create from JSON file
-awk tasks create --body @samples/private-task.json
+awk-cli tasks create --body @samples/private-task.json
 
 # Merge file + overrides
-awk tasks create \
+awk-cli tasks create \
   --body @payload.json \
   --set name="Override Title"
 ```
@@ -220,17 +220,17 @@ awk tasks create \
 
 ```bash
 # Inline JSON arrays with --set-json
-awk workspace absence-regions users-assign \
+awk-cli workspace absence-regions users-assign \
   --set regionId=550e8400-e29b-41d4-a716-446655440000 \
   --set-json userIds='["user-1","user-2"]'
 
 # JSON arrays from file
-awk workspace absence-regions users-assign \
+awk-cli workspace absence-regions users-assign \
   --set regionId=550e8400-e29b-41d4-a716-446655440000 \
   --set-json userIds=@/tmp/users.json
 
 # Nested properties
-awk task-tags tasks-update-tags \
+awk-cli task-tags tasks-update-tags \
   --set newTag.name=Priority
 ```
 
@@ -254,7 +254,7 @@ awk task-tags tasks-update-tags \
 ```
 
 ```bash
-awk invitations create --body @samples/invite.json
+awk-cli invitations create --body @samples/invite.json
 ```
 
 **Step 2 — Accept the invitation programmatically**
@@ -265,7 +265,7 @@ awk invitations create --body @samples/invite.json
 ```
 
 ```bash
-awk invitations accept --body @samples/accept.json
+awk-cli invitations accept --body @samples/accept.json
 ```
 
 **Step 3 — Create a welcome task for the new user**
@@ -283,15 +283,15 @@ awk invitations accept --body @samples/accept.json
 ```
 
 ```bash
-awk tasks create --body @samples/private-task.json
+awk-cli tasks create --body @samples/private-task.json
 ```
 
 **Or inline with overrides:**
 
 ```bash
-awk tasks create \
+awk-cli tasks create \
   --body @samples/private-task.json \
-  --set entityId="$(awk users list | jq -r '.response[0].id')"
+  --set entityId="$(awk-cli users list | jq -r '.response[0].id')"
 ```
 
 ---
@@ -314,7 +314,7 @@ Every command returns a consistent JSON envelope:
 | `traceId` | Correlation ID from response headers (best effort) |
 | `response` | Parsed JSON body, or raw text if not JSON |
 
-This makes `awk` trivial to integrate with `jq`, scripts, and AI agents.
+This makes `awk-cli` trivial to integrate with `jq`, scripts, and AI agents.
 
 ---
 
@@ -345,7 +345,7 @@ dotnet publish src/Awk.Cli -c Release -r linux-x64
 dotnet publish src/Awk.Cli -c Release -r win-x64
 ```
 
-Output: `src/Awk.Cli/bin/Release/net10.0/<rid>/publish/awork`
+Output: `src/Awk.Cli/bin/Release/net10.0/<rid>/publish/awk-cli`
 
 ### Run Tests
 
