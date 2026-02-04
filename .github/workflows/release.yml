@@ -116,8 +116,8 @@ jobs:
           cd tap
 
           # Update formula
-          cat > Formula/awork.rb << EOF
-          class Awork < Formula
+          cat > Formula/awork-cli.rb << EOF
+          class AworkCli < Formula
             desc "Token-only, swagger-driven CLI for awork"
             homepage "https://github.com/awork-io/awork-cli"
             version "${VERSION}"
@@ -153,6 +153,6 @@ jobs:
           # Commit and push
           git config user.name "github-actions[bot]"
           git config user.email "github-actions[bot]@users.noreply.github.com"
-          git add Formula/awork.rb
+          git add Formula/awork-cli.rb
           git commit -m "awork ${VERSION}"
           git push
