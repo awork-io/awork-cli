@@ -1,5 +1,5 @@
 <p align="center">
-  <h1 align="center">awk</h1>
+  <h1 align="center">awork</h1>
   <p align="center">
     <strong>The awork CLI — built for humans and agents alike</strong>
   </p>
@@ -7,9 +7,9 @@
     Token or OAuth authentication • Swagger-driven code generation • Structured JSON output
   </p>
   <p align="center">
-    <a href="https://github.com/awork-io/awk-cli/actions/workflows/ci.yml"><img src="https://img.shields.io/github/actions/workflow/status/awork-io/awk-cli/ci.yml?style=flat-square&label=CI" alt="CI"></a>
-    <a href="https://github.com/awork-io/awk-cli/releases"><img src="https://img.shields.io/github/v/release/awork-io/awk-cli?style=flat-square&color=blue" alt="Release"></a>
-    <a href="https://github.com/awork-io/awk-cli/blob/main/LICENSE"><img src="https://img.shields.io/badge/license-MIT-green?style=flat-square" alt="License"></a>
+    <a href="https://github.com/awork-io/awork-cli/actions/workflows/ci.yml"><img src="https://img.shields.io/github/actions/workflow/status/awork-io/awork-cli/ci.yml?style=flat-square&label=CI" alt="CI"></a>
+    <a href="https://github.com/awork-io/awork-cli/releases"><img src="https://img.shields.io/github/v/release/awork-io/awork-cli?style=flat-square&color=blue" alt="Release"></a>
+    <a href="https://github.com/awork-io/awork-cli/blob/main/LICENSE"><img src="https://img.shields.io/badge/license-MIT-green?style=flat-square" alt="License"></a>
     <img src="https://img.shields.io/badge/.NET-10.0-512BD4?style=flat-square&logo=dotnet" alt=".NET 10">
     <img src="https://img.shields.io/badge/OpenAPI-3.0-6BA539?style=flat-square&logo=openapiinitiative" alt="OpenAPI 3.0">
   </p>
@@ -17,7 +17,7 @@
 
 ---
 
-## Why awk?
+## Why awork CLI?
 
 | Problem | Solution |
 |---------|----------|
@@ -27,7 +27,7 @@
 | Manual DTO maintenance | Zero hand-written DTOs — all generated from `swagger.json` |
 
 ```
-$ awk-cli users list --page-size 3
+$ awork users list --page-size 3
 
 {
   "statusCode": 200,
@@ -43,11 +43,11 @@ $ awk-cli users list --page-size 3
 ### Homebrew (macOS/Linux)
 ```bash
 brew tap awork-io/tap
-brew install awk-cli
+brew install awork
 ```
 
 ### Download binary
-Grab the latest release for your platform from [GitHub Releases](https://github.com/awork-io/awk-cli/releases).
+Grab the latest release for your platform from [GitHub Releases](https://github.com/awork-io/awork-cli/releases).
 
 | Platform | Binary |
 |----------|--------|
@@ -67,17 +67,17 @@ echo "AWORK_TOKEN=your-token-here" > .env
 
 **2. Or login with OAuth (DCR)**
 ```bash
-awk-cli auth login
+awork auth login
 ```
 
 **3. Verify setup**
 ```bash
-awk-cli doctor
+awork doctor
 ```
 
 **4. Explore**
 ```bash
-awk-cli --help
+awork --help
 ```
 
 ---
@@ -99,7 +99,7 @@ Use `--env <PATH>` to load a different `.env` file.
 ### OAuth (Dynamic Client Registration)
 
 ```bash
-awk-cli auth login
+awork auth login
 ```
 
 This opens a browser and stores an OAuth token + refresh token in the user config file.
@@ -112,7 +112,7 @@ Override OAuth settings with `--redirect-uri`, `--scopes`, or env vars:
 Default: **API token wins**. Override with:
 
 ```bash
-awk-cli --auth-mode oauth users list
+awork --auth-mode oauth users list
 ```
 
 Valid modes: `auto` (default), `token`, `oauth`.
@@ -127,7 +127,7 @@ User config is stored at:
 Override with:
 
 ```bash
-awk-cli --config /path/to/config.json auth status
+awork --config /path/to/config.json auth status
 ```
 
 ---
@@ -139,7 +139,7 @@ awk-cli --config /path/to/config.json auth status
 Commands follow a consistent pattern derived from the Swagger spec:
 
 ```
-awk-cli <domain> [resource] <action> [positional-args] [--options]
+awork <domain> [resource] <action> [positional-args] [--options]
 ```
 
 - **Domains** are top-level buckets: `users`, `tasks`, `projects`, `times`, `workspace`, ...
@@ -152,29 +152,29 @@ awk-cli <domain> [resource] <action> [positional-args] [--options]
 
 ```bash
 # List all resource groups
-awk-cli --help
+awork --help
 
 # List actions for a domain
-awk-cli users --help
+awork users --help
 
 # Get help for a specific command
-awk-cli users list --help
+awork users list --help
 ```
 
 ### Auth Commands
 
 ```bash
 # OAuth login
-awk-cli auth login
+awork auth login
 
 # Save API token
-awk-cli auth login --token "$AWORK_TOKEN"
+awork auth login --token "$AWORK_TOKEN"
 
 # Status
-awk-cli auth status
+awork auth status
 
 # Logout (clear tokens)
-awk-cli auth logout
+awork auth logout
 ```
 
 ### Global Options
@@ -200,19 +200,19 @@ These options are available on all API commands:
 
 ```bash
 # List users
-awk-cli users list
+awork users list
 
 # List with pagination and field selection
-awk-cli users list --page-size 5 --select "id,firstName,lastName"
+awork users list --page-size 5 --select "id,firstName,lastName"
 
 # Table output for quick inspection
-awk-cli users list --output table --select "firstName,lastName"
+awork users list --output table --select "firstName,lastName"
 
 # Get user by ID (positional path param)
-awk-cli users get 550e8400-e29b-41d4-a716-446655440000
+awork users get 550e8400-e29b-41d4-a716-446655440000
 
 # Search with filters
-awk-cli search get-search \
+awork search get-search \
   --search-term "agent" \
   --search-types "user" \
   --top 3 \
@@ -223,16 +223,16 @@ awk-cli search get-search \
 
 ```bash
 # Create with inline params
-awk-cli tasks create \
+awork tasks create \
   --name "Welcome" \
   --base-type private \
   --entity-id 550e8400-e29b-41d4-a716-446655440000
 
 # Create from JSON file
-awk-cli tasks create --body @samples/private-task.json
+awork tasks create --body @samples/private-task.json
 
 # Merge file + overrides
-awk-cli tasks create \
+awork tasks create \
   --body @payload.json \
   --set name="Override Title"
 ```
@@ -241,17 +241,17 @@ awk-cli tasks create \
 
 ```bash
 # Inline JSON arrays with --set-json
-awk-cli workspace absence-regions users-assign \
+awork workspace absence-regions users-assign \
   --set regionId=550e8400-e29b-41d4-a716-446655440000 \
   --set-json userIds='["user-1","user-2"]'
 
 # JSON arrays from file
-awk-cli workspace absence-regions users-assign \
+awork workspace absence-regions users-assign \
   --set regionId=550e8400-e29b-41d4-a716-446655440000 \
   --set-json userIds=@/tmp/users.json
 
 # Nested properties
-awk-cli task-tags tasks-update-tags \
+awork task-tags tasks-update-tags \
   --set newTag.name=Priority
 ```
 
@@ -261,20 +261,20 @@ The consistent JSON envelope makes `jq` integration seamless:
 
 ```bash
 # Get first user's ID
-awk-cli users list --page-size 1 | jq -r '.response[0].id'
+awork users list --page-size 1 | jq -r '.response[0].id'
 
 # List project names only
-awk-cli projects list | jq -r '.response[].name'
+awork projects list | jq -r '.response[].name'
 
 # Get task count by status
-awk-cli tasks list | jq '.response | group_by(.taskStatusId) | map({status: .[0].taskStatusId, count: length})'
+awork tasks list | jq '.response | group_by(.taskStatusId) | map({status: .[0].taskStatusId, count: length})'
 
 # Chain commands: create task for first active user
-USER_ID=$(awk-cli users list --page-size 1 | jq -r '.response[0].id')
-awk-cli tasks create --name "Welcome" --base-type private --entity-id "$USER_ID"
+USER_ID=$(awork users list --page-size 1 | jq -r '.response[0].id')
+awork tasks create --name "Welcome" --base-type private --entity-id "$USER_ID"
 
 # Check if request succeeded
-awk-cli users me | jq -e '.statusCode == 200' > /dev/null && echo "OK" || echo "Failed"
+awork users me | jq -e '.statusCode == 200' > /dev/null && echo "OK" || echo "Failed"
 ```
 
 ### Real-World Workflow: Onboard a New Team Member
@@ -297,7 +297,7 @@ awk-cli users me | jq -e '.statusCode == 200' > /dev/null && echo "OK" || echo "
 ```
 
 ```bash
-awk-cli invitations create --body @samples/invite.json
+awork invitations create --body @samples/invite.json
 ```
 
 **Step 2 — Accept the invitation programmatically**
@@ -308,7 +308,7 @@ awk-cli invitations create --body @samples/invite.json
 ```
 
 ```bash
-awk-cli invitations accept --body @samples/accept.json
+awork invitations accept --body @samples/accept.json
 ```
 
 **Step 3 — Create a welcome task for the new user**
@@ -326,15 +326,15 @@ awk-cli invitations accept --body @samples/accept.json
 ```
 
 ```bash
-awk-cli tasks create --body @samples/private-task.json
+awork tasks create --body @samples/private-task.json
 ```
 
 **Or inline with overrides:**
 
 ```bash
-awk-cli tasks create \
+awork tasks create \
   --body @samples/private-task.json \
-  --set entityId="$(awk-cli users list | jq -r '.response[0].id')"
+  --set entityId="$(awork users list | jq -r '.response[0].id')"
 ```
 
 ---
@@ -357,7 +357,7 @@ Every command returns a consistent JSON envelope:
 | `traceId` | Correlation ID from response headers (best effort) |
 | `response` | Parsed JSON body, or raw text if not JSON |
 
-This makes `awk-cli` trivial to integrate with `jq`, scripts, and AI agents.
+This makes `awork` trivial to integrate with `jq`, scripts, and AI agents.
 
 ---
 
@@ -366,8 +366,8 @@ This makes `awk-cli` trivial to integrate with `jq`, scripts, and AI agents.
 ### Building from Source
 
 ```bash
-git clone https://github.com/awork-io/awk-cli.git
-cd awk-cli
+git clone https://github.com/awork-io/awork-cli.git
+cd awork-cli
 dotnet build
 dotnet run --project src/Awk.Cli -- --help
 ```
@@ -388,7 +388,7 @@ dotnet publish src/Awk.Cli -c Release -r linux-x64
 dotnet publish src/Awk.Cli -c Release -r win-x64
 ```
 
-Output: `src/Awk.Cli/bin/Release/net10.0/<rid>/publish/awk-cli`
+Output: `src/Awk.Cli/bin/Release/net10.0/<rid>/publish/awork`
 
 ### Run Tests
 
@@ -465,7 +465,7 @@ This will:
 ## Project Structure
 
 ```
-awk-cli/
+awork-cli/
 ├── .github/
 │   └── workflows/
 │       ├── ci.yml            # Build & test on PRs

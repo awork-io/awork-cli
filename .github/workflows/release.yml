@@ -103,9 +103,9 @@ jobs:
           set -e
 
           # Download release assets and compute SHA256
-          curl -sL "https://github.com/awork-io/awk-cli/releases/download/${TAG}/awork-osx-arm64.tar.gz" -o arm64.tar.gz
-          curl -sL "https://github.com/awork-io/awk-cli/releases/download/${TAG}/awork-osx-x64.tar.gz" -o x64.tar.gz
-          curl -sL "https://github.com/awork-io/awk-cli/releases/download/${TAG}/awork-linux-x64.tar.gz" -o linux.tar.gz
+          curl -sL "https://github.com/awork-io/awork-cli/releases/download/${TAG}/awork-osx-arm64.tar.gz" -o arm64.tar.gz
+          curl -sL "https://github.com/awork-io/awork-cli/releases/download/${TAG}/awork-osx-x64.tar.gz" -o x64.tar.gz
+          curl -sL "https://github.com/awork-io/awork-cli/releases/download/${TAG}/awork-linux-x64.tar.gz" -o linux.tar.gz
 
           SHA_ARM64=$(sha256sum arm64.tar.gz | cut -d' ' -f1)
           SHA_X64=$(sha256sum x64.tar.gz | cut -d' ' -f1)
@@ -116,36 +116,36 @@ jobs:
           cd tap
 
           # Update formula
-          cat > Formula/awk-cli.rb << EOF
-          class AwkCli < Formula
+          cat > Formula/awork.rb << EOF
+          class Awork < Formula
             desc "Token-only, swagger-driven CLI for awork"
-            homepage "https://github.com/awork-io/awk-cli"
+            homepage "https://github.com/awork-io/awork-cli"
             version "${VERSION}"
             license "MIT"
 
             on_macos do
               on_arm do
-                url "https://github.com/awork-io/awk-cli/releases/download/${TAG}/awork-osx-arm64.tar.gz"
+                url "https://github.com/awork-io/awork-cli/releases/download/${TAG}/awork-osx-arm64.tar.gz"
                 sha256 "${SHA_ARM64}"
               end
 
               on_intel do
-                url "https://github.com/awork-io/awk-cli/releases/download/${TAG}/awork-osx-x64.tar.gz"
+                url "https://github.com/awork-io/awork-cli/releases/download/${TAG}/awork-osx-x64.tar.gz"
                 sha256 "${SHA_X64}"
               end
             end
 
             on_linux do
-              url "https://github.com/awork-io/awk-cli/releases/download/${TAG}/awork-linux-x64.tar.gz"
+              url "https://github.com/awork-io/awork-cli/releases/download/${TAG}/awork-linux-x64.tar.gz"
               sha256 "${SHA_LINUX}"
             end
 
             def install
-              bin.install "awk-cli"
+              bin.install "awork"
             end
 
             test do
-              assert_match "USAGE", shell_output("#{bin}/awk-cli --help")
+              assert_match "USAGE", shell_output("#{bin}/awork --help")
             end
           end
           EOF
@@ -153,6 +153,6 @@ jobs:
           # Commit and push
           git config user.name "github-actions[bot]"
           git config user.email "github-actions[bot]@users.noreply.github.com"
-          git add Formula/awk-cli.rb
-          git commit -m "awk-cli ${VERSION}"
+          git add Formula/awork.rb
+          git commit -m "awork ${VERSION}"
           git push

@@ -19,9 +19,9 @@ fi
 echo "Building for $RID..."
 dotnet publish src/Awk.Cli -c Release -r "$RID" --nologo -v q
 
-BINARY="$(pwd)/src/Awk.Cli/bin/Release/net10.0/$RID/publish/awk-cli"
+BINARY="$(pwd)/src/Awk.Cli/bin/Release/net10.0/$RID/publish/awork"
 INSTALL_DIR="${HOME}/.local/bin"
-INSTALL_PATH="${INSTALL_DIR}/awk-cli"
+INSTALL_PATH="${INSTALL_DIR}/awork"
 
 mkdir -p "$INSTALL_DIR"
 echo "Installing to $INSTALL_PATH..."

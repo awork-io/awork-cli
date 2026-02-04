@@ -47,7 +47,7 @@ internal static class AuthResolver
             return await ResolveOAuth(baseConfig, effectiveConfig, cancellationToken);
         }
 
-        throw new InvalidOperationException("No auth token found. Use --token/--auth-mode token or run `awk-cli auth login`.");
+        throw new InvalidOperationException("No auth token found. Use --token/--auth-mode token or run `awork auth login`.");
     }
 
     private static async Task<AuthResolution> ResolveOAuth(
@@ -58,7 +58,7 @@ internal static class AuthResolver
         var oauth = effectiveConfig.OAuth?.Token;
         if (oauth is null || string.IsNullOrWhiteSpace(oauth.AccessToken))
         {
-            throw new InvalidOperationException("OAuth token missing. Run `awk-cli auth login` or provide --token.");
+            throw new InvalidOperationException("OAuth token missing. Run `awork auth login` or provide --token.");
         }
 
         if (oauth.ExpiresAt is null || oauth.ExpiresAt > DateTimeOffset.UtcNow.AddMinutes(2))

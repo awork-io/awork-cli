@@ -666,7 +666,7 @@ public sealed class CliIntegrationTests
         var result = await RunCliAsyncWithoutToken(new Uri("http://127.0.0.1:1/"), "skill");
 
         Assert.Equal(0, result.ExitCode);
-        Assert.Contains("# awk-cli", result.StdOut);
+        Assert.Contains("# awork CLI Guide", result.StdOut);
         Assert.Contains("## Output Contract", result.StdOut);
         Assert.Contains("statusCode", result.StdOut);
         Assert.Contains("jq", result.StdOut);
@@ -782,13 +782,13 @@ public sealed class CliIntegrationTests
             var ridDirs = Directory.GetDirectories(binDir);
             foreach (var ridDir in ridDirs)
             {
-                var ridPath = Path.Combine(ridDir, "awk-cli.dll");
+                var ridPath = Path.Combine(ridDir, "awork.dll");
                 if (File.Exists(ridPath)) return ridPath;
             }
         }
 
         // Fallback to non-RID path
-        var path = Path.Combine(binDir, "awk-cli.dll");
+        var path = Path.Combine(binDir, "awork.dll");
         if (File.Exists(path)) return path;
 
         throw new FileNotFoundException("CLI build output not found. Build the CLI before running tests.", path);
@@ -799,7 +799,7 @@ public sealed class CliIntegrationTests
         var dir = new DirectoryInfo(AppContext.BaseDirectory);
         while (dir is not null)
         {
-            var marker = Path.Combine(dir.FullName, "awk-cli.slnx");
+            var marker = Path.Combine(dir.FullName, "awork-cli.slnx");
             if (File.Exists(marker))
             {
                 return dir.FullName;
@@ -808,7 +808,7 @@ public sealed class CliIntegrationTests
             dir = dir.Parent;
         }
 
-        throw new DirectoryNotFoundException("Could not locate repo root (awk-cli.slnx).");
+        throw new DirectoryNotFoundException("Could not locate repo root (awork-cli.slnx).");
     }
 
     private sealed record CliResult(int ExitCode, string StdOut, string StdErr);
