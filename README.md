@@ -19,14 +19,14 @@
 
 ## Why awork CLI?
 
-| Problem | Solution |
-|---------|----------|
-| Unstable command names across API versions | Commands generated directly from Swagger — always in sync |
-| Inconsistent parameter validation | Strict validation at build time via source generation |
-| Unparseable output for automation | Every response wrapped in a predictable JSON envelope |
-| Manual DTO maintenance | Zero hand-written DTOs — all generated from `swagger.json` |
+| Problem                                    | Solution                                                   |
+| ------------------------------------------ | ---------------------------------------------------------- |
+| Unstable command names across API versions | Commands generated directly from Swagger — always in sync  |
+| Inconsistent parameter validation          | Strict validation at build time via source generation      |
+| Unparseable output for automation          | Every response wrapped in a predictable JSON envelope      |
+| Manual DTO maintenance                     | Zero hand-written DTOs — all generated from `swagger.json` |
 
-```
+```bash
 $ awork users list --page-size 3
 
 {
@@ -41,41 +41,47 @@ $ awork users list --page-size 3
 ## Installation
 
 ### Homebrew (macOS/Linux)
+
 ```bash
 brew tap awork-io/awork-cli
 brew install awork-cli
 ```
 
 ### Download binary
+
 Grab the latest release for your platform from [GitHub Releases](https://github.com/awork-io/awork-cli/releases).
 
-| Platform | Binary |
-|----------|--------|
+| Platform              | Binary                   |
+| --------------------- | ------------------------ |
 | macOS (Apple Silicon) | `awork-osx-arm64.tar.gz` |
-| macOS (Intel) | `awork-osx-x64.tar.gz` |
-| Linux (x64) | `awork-linux-x64.tar.gz` |
-| Windows (x64) | `awork-win-x64.zip` |
+| macOS (Intel)         | `awork-osx-x64.tar.gz`   |
+| Linux (x64)           | `awork-linux-x64.tar.gz` |
+| Windows (x64)         | `awork-win-x64.zip`      |
 
 ---
 
 ## Quick Start
 
 **1. Set your token (fastest path)**
+
 ```bash
 echo "AWORK_TOKEN=your-token-here" > .env
 ```
 
 **2. Or login with OAuth (DCR)**
+
 ```bash
 awork auth login
 ```
 
 **3. Verify setup**
+
 ```bash
 awork doctor
 ```
 
 **4. Explore**
+
 ```bash
 awork --help
 ```
@@ -121,6 +127,7 @@ Environment variable: `AWK_AUTH_MODE` or `AWORK_AUTH_MODE`.
 ### Config File
 
 User config is stored at:
+
 - macOS/Linux: `~/.config/awork-cli/config.json`
 - Windows: `%APPDATA%\\awork-cli\\config.json`
 
@@ -138,7 +145,7 @@ awork --config /path/to/config.json auth status
 
 Commands follow a consistent pattern derived from the Swagger spec:
 
-```
+```text
 awork <domain> [resource] <action> [positional-args] [--options]
 ```
 
@@ -181,16 +188,16 @@ awork auth logout
 
 These options are available on all API commands:
 
-| Option | Description |
-|--------|-------------|
-| `--select <FIELDS>` | Filter response fields (client-side). Example: `--select "id,name,createdOn"` |
-| `--output <FORMAT>` | Output format: `json` (default) or `table` |
-| `--page <N>` | Page number for paginated endpoints (default: 1) |
-| `--page-size <N>` | Items per page for paginated endpoints |
-| `--env <PATH>` | Load environment variables from a custom `.env` file |
-| `--token <TOKEN>` | Override the API token for this request |
-| `--auth-mode <MODE>` | Force auth mode: `auto`, `token`, or `oauth` |
-| `--config <PATH>` | Use a custom config file path |
+| Option               | Description                                                                   |
+| -------------------- | ----------------------------------------------------------------------------- |
+| `--select <FIELDS>`  | Filter response fields (client-side). Example: `--select "id,name,createdOn"` |
+| `--output <FORMAT>`  | Output format: `json` (default) or `table`                                    |
+| `--page <N>`         | Page number for paginated endpoints (default: 1)                              |
+| `--page-size <N>`    | Items per page for paginated endpoints                                        |
+| `--env <PATH>`       | Load environment variables from a custom `.env` file                          |
+| `--token <TOKEN>`    | Override the API token for this request                                       |
+| `--auth-mode <MODE>` | Force auth mode: `auto`, `token`, or `oauth`                                  |
+| `--config <PATH>`    | Use a custom config file path                                                 |
 
 ---
 
@@ -351,11 +358,11 @@ Every command returns a consistent JSON envelope:
 }
 ```
 
-| Field | Description |
-|-------|-------------|
-| `statusCode` | HTTP status code from the API |
-| `traceId` | Correlation ID from response headers (best effort) |
-| `response` | Parsed JSON body, or raw text if not JSON |
+| Field        | Description                                        |
+| ------------ | -------------------------------------------------- |
+| `statusCode` | HTTP status code from the API                      |
+| `traceId`    | Correlation ID from response headers (best effort) |
+| `response`   | Parsed JSON body, or raw text if not JSON          |
 
 This makes `awork` trivial to integrate with `jq`, scripts, and AI agents.
 
@@ -423,6 +430,7 @@ git push origin v0.1.0
 ```
 
 This will:
+
 1. Build binaries for macOS (ARM64/x64), Linux, and Windows
 2. Create a GitHub release with all artifacts
 3. Update the Homebrew formula (requires `HOMEBREW_TAP_TOKEN` secret)
@@ -431,7 +439,7 @@ This will:
 
 ## Architecture
 
-```
+```text
 ┌─────────────────────────────────────────────────────────────┐
 │                        swagger.json                         │
 └─────────────────────────┬───────────────────────────────────┘
@@ -464,7 +472,7 @@ This will:
 
 ## Project Structure
 
-```
+```text
 awork-cli/
 ├── .github/
 │   └── workflows/
@@ -484,6 +492,23 @@ awork-cli/
 
 ---
 
+## AI Agent Setup
+
+The awork CLI ships with a built-in `skill` command that exports a ready-made skill definition for AI coding agents. This lets agents understand available commands, authentication, and output formats without manual configuration.
+
+### Claude Code
+
+Register the awork CLI skill globally so it's available across all your projects:
+
+```bash
+mkdir -p ~/.claude/skills/awork-cli
+awork skill > ~/.claude/skills/awork-cli/SKILL.md
+```
+
+After this, Claude Code will automatically pick up the skill and can use the awork CLI on your behalf.
+
+---
+
 ## License
 
 MIT
@@ -493,4 +518,3 @@ MIT
 <p align="center">
   <sub>Built with Spectre.Console • Powered by Roslyn Source Generators</sub>
 </p>
-
