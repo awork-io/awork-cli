@@ -80,25 +80,27 @@ internal static class ConfigLoader
         return new ConfigLoadResult(baseConfig, effective, configPath);
     }
 
-    internal static async Task<AppConfig?> LoadFromFile(string path, CancellationToken cancellationToken)
+    internal static Task<AppConfig?> LoadFromFile(string path, CancellationToken cancellationToken)
     {
-        if (!File.Exists(path)) return null;
-        var text = await File.ReadAllTextAsync(path, cancellationToken);
-        if (string.IsNullOrWhiteSpace(text)) return null;
+        if (!File.Exists(path)) return Task.FromResult<AppConfig?>(null);
+        var text = File.ReadAllText(path);
+        if (string.IsNullOrWhiteSpace(text)) return Task.FromResult<AppConfig?>(null);
         var loaded = JsonSerializer.Deserialize<AppConfig>(text, JsonOptions);
-        return loaded is null ? null : Normalize(loaded, ".env");
+        return Task.FromResult<AppConfig?>(loaded is null ? null : Normalize(loaded, ".env"));
     }
 
-    internal static async Task SaveUserConfig(AppConfig config, string configPath, CancellationToken cancellationToken)
+    internal static Task SaveUserConfig(AppConfig config, string configPath, CancellationToken cancellationToken)
     {
         Directory.CreateDirectory(Path.GetDirectoryName(configPath)!);
         var payload = JsonSerializer.Serialize(config, JsonOptions);
-        await File.WriteAllTextAsync(configPath, payload, cancellationToken);
+        File.WriteAllText(configPath, payload);
 
         if (OperatingSystem.IsLinux() || OperatingSystem.IsMacOS())
         {
             File.SetUnixFileMode(configPath, UnixFileMode.UserRead | UnixFileMode.UserWrite);
         }
+
+        return Task.CompletedTask;
     }
 
     internal static string ResolveConfigPath(string? overridePath)
