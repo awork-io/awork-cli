@@ -83,6 +83,13 @@ public sealed partial class AworkClient
         }
 
         var json = JsonSerializer.Serialize(body, _jsonOptions);
+
+        if (string.Equals(contentType, "multipart/form-data", StringComparison.OrdinalIgnoreCase))
+        {
+            var jsonBytes = Encoding.UTF8.GetBytes(json);
+            return () => JsonToMultipart(jsonBytes);
+        }
+
         var mediaType = contentType ?? "application/json";
         return () => new StringContent(json, Encoding.UTF8, mediaType);
     }
@@ -288,6 +295,29 @@ public sealed partial class AworkClient
         if (headers.TryGetValues("x-correlation-id", out var correlation)) return correlation.FirstOrDefault();
         if (headers.TryGetValues("request-id", out var requestId)) return requestId.FirstOrDefault();
         return null;
+    }
+
+    private static HttpContent JsonToMultipart(byte[] jsonBytes)
+    {
+        using var doc = JsonDocument.Parse(jsonBytes);
+        var root = doc.RootElement;
+        var form = new MultipartFormDataContent();
+
+        if (root.ValueKind == JsonValueKind.Object)
+        {
+            foreach (var property in root.EnumerateObject())
+            {
+                var value = property.Value.ValueKind switch
+                {
+                    JsonValueKind.String => property.Value.GetString() ?? string.Empty,
+                    JsonValueKind.Null => string.Empty,
+                    _ => property.Value.GetRawText()
+                };
+                form.Add(new StringContent(value, Encoding.UTF8), property.Name);
+            }
+        }
+
+        return form;
     }
 
     private static string Escape(string value) => Uri.EscapeDataString(value);
