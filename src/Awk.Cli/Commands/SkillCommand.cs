@@ -16,6 +16,11 @@ internal sealed class SkillCommand : AsyncCommand<SkillCommand.Settings>
 internal static class SkillContent
 {
     internal const string Text = """
+---
+name: awork-cli
+description: Manage projects, users, time entries and more in awork directly from the command line with the awork-cli.
+---
+
 # awork CLI Guide
 
 > AI-friendly reference for the awork CLI. Pipe to your agent: `awork skill`
