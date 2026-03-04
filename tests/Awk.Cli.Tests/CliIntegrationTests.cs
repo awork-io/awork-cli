@@ -663,7 +663,7 @@ public sealed class CliIntegrationTests
     [Fact]
     public async Task SkillCommand_OutputsMarkdownGuide()
     {
-        var result = await RunCliAsyncWithoutToken(new Uri("http://127.0.0.1:1/"), "skill");
+        var result = await RunCliAsyncWithoutToken(new Uri("http://127.0.0.1:1/"), "skill", "show");
 
         Assert.Equal(0, result.ExitCode);
         Assert.Contains("# awork CLI Guide", result.StdOut);
