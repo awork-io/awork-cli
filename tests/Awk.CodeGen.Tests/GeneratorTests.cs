@@ -215,7 +215,9 @@ public sealed class GeneratorTests
             ["CompanyTags"] = "company-tags",
             ["CommentFiles"] = "comment-files",
             ["FileUpload"] = "upload",
-            ["AbsenceRegions"] = "absence-regions"
+            ["AbsenceRegions"] = "absence-regions",
+            ["TaskViews"] = "task-views",
+            ["EntityViews"] = "entity-views"
         };
 
         foreach (var pair in overrides)
@@ -223,6 +225,14 @@ public sealed class GeneratorTests
             var info = ResolveTagInfo(pair.Key);
             Assert.Equal(pair.Value, info.SubTag);
         }
+    }
+
+    [Fact]
+    public void FutureSwaggerTags_EntityViews_MapToTasksDomain()
+    {
+        var info = ResolveTagInfo("EntityViews");
+        Assert.Equal("tasks", info.Domain);
+        Assert.Equal("entity-views", info.SubTag);
     }
 
     [Fact]
@@ -387,6 +397,24 @@ public sealed class GeneratorTests
         Assert.Contains("This PUT endpoint requires explicit JSON via --body because no fetch-by-id route exists for safe merge.", cli);
     }
 
+    [Fact]
+    public void CliGeneration_EntityViews_UseTasksDomainAndCleanCommands()
+    {
+        var generated = GenerateSources(GetEntityViewsSwagger());
+
+        Assert.Contains("config.AddBranch(\"tasks\"", generated.Cli);
+        Assert.Contains("branch.AddBranch(\"entity-views\"", generated.Cli);
+
+        var names = ExtractCommandNames(generated.Cli).ToList();
+        Assert.Contains("list", names);
+        Assert.Contains("list-entity-views", names);
+        Assert.Contains("create-entity-views", names);
+        Assert.Contains("get-entity-view", names);
+        Assert.Contains("update-entity-view", names);
+        Assert.Contains("delete-entity-view", names);
+        Assert.Contains("list-entity-view-tasks", names);
+    }
+
     private static IEnumerable<string> ExtractCommandNames(string cliSource)
     {
         var matches = Regex.Matches(cliSource, "AddCommand<[^>]+>\\(\\\"([a-z0-9\\-]+)\\\"\\)");
@@ -499,7 +527,11 @@ public sealed class GeneratorTests
     {
         var swaggerPath = FindFileUpwards("swagger.json");
         var swaggerText = File.ReadAllText(swaggerPath);
+        return GenerateSources(swaggerText, swaggerPath);
+    }
 
+    private static GeneratedSourceSet GenerateSources(string swaggerText, string swaggerPath = "/virtual/swagger.json")
+    {
         var additionalText = new InMemoryAdditionalText(swaggerPath, SourceText.From(swaggerText, Encoding.UTF8));
         var compilation = CSharpCompilation.Create(
             "Awk.CodeGen.Tests",
@@ -524,6 +556,223 @@ public sealed class GeneratorTests
         var client = GetSource(sources, "AworkClient.Operations.g.cs");
         var dtos = GetSource(sources, "AworkDtos.g.cs");
         return new GeneratedSourceSet(cli, client, dtos);
+    }
+
+    private static string GetEntityViewsSwagger()
+    {
+        return """
+{
+  "openapi": "3.0.0",
+  "info": {
+    "title": "Test",
+    "version": "1.0.0"
+  },
+  "paths": {
+    "/me/entityviews": {
+      "get": {
+        "tags": [ "EntityViews" ],
+        "operationId": "GetMeEntityViews",
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": { "$ref": "#/components/schemas/EntityView" }
+                }
+              }
+            }
+          }
+        }
+      },
+      "post": {
+        "tags": [ "EntityViews" ],
+        "operationId": "PostMeEntityView",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": { "$ref": "#/components/schemas/EntityViewForm" }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": { "$ref": "#/components/schemas/EntityView" }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/me/entityviews/{entityViewId}": {
+      "get": {
+        "tags": [ "EntityViews" ],
+        "operationId": "GetMeEntityViewById",
+        "parameters": [
+          {
+            "name": "entityViewId",
+            "in": "path",
+            "required": true,
+            "schema": { "type": "string", "format": "uuid" }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": { "$ref": "#/components/schemas/EntityView" }
+              }
+            }
+          }
+        }
+      },
+      "put": {
+        "tags": [ "EntityViews" ],
+        "operationId": "PutMeEntityViewById",
+        "parameters": [
+          {
+            "name": "entityViewId",
+            "in": "path",
+            "required": true,
+            "schema": { "type": "string", "format": "uuid" }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": { "$ref": "#/components/schemas/EntityViewPutForm" }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": { "$ref": "#/components/schemas/EntityView" }
+              }
+            }
+          }
+        }
+      },
+      "delete": {
+        "tags": [ "EntityViews" ],
+        "operationId": "DeleteMeEntityViewById",
+        "parameters": [
+          {
+            "name": "entityViewId",
+            "in": "path",
+            "required": true,
+            "schema": { "type": "string", "format": "uuid" }
+          }
+        ],
+        "responses": {
+          "204": {
+            "description": "No Content"
+          }
+        }
+      }
+    },
+    "/me/entityviews/{entityViewId}/tasks": {
+      "get": {
+        "tags": [ "EntityViews" ],
+        "operationId": "GetMeEntityViewTasksByEntityViewId",
+        "parameters": [
+          {
+            "name": "entityViewId",
+            "in": "path",
+            "required": true,
+            "schema": { "type": "string", "format": "uuid" }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": { "$ref": "#/components/schemas/TaskModel" }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/entityviews": {
+      "get": {
+        "tags": [ "EntityViews" ],
+        "operationId": "GetEntityViews",
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": { "$ref": "#/components/schemas/EntityView" }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/entityviews/{entityViewId}": {
+      "get": {
+        "tags": [ "EntityViews" ],
+        "operationId": "GetEntityViewById",
+        "parameters": [
+          {
+            "name": "entityViewId",
+            "in": "path",
+            "required": true,
+            "schema": { "type": "string", "format": "uuid" }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": { "$ref": "#/components/schemas/EntityView" }
+              }
+            }
+          }
+        }
+      }
+    }
+  },
+  "components": {
+    "schemas": {
+      "EntityView": {
+        "type": "object",
+        "additionalProperties": false
+      },
+      "EntityViewForm": {
+        "type": "object",
+        "additionalProperties": false
+      },
+      "EntityViewPutForm": {
+        "type": "object",
+        "additionalProperties": false
+      },
+      "TaskModel": {
+        "type": "object",
+        "additionalProperties": false
+      }
+    }
+  }
+}
+""";
     }
 
     private static string GetSource(ImmutableArray<GeneratedSourceResult> sources, string hintName)

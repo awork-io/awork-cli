@@ -87,6 +87,7 @@ public sealed class SwaggerClientGenerator : ISourceGenerator
         ["TaskSchedules"] = "tasks",
         ["TaskStatuses"] = "tasks",
         ["TaskViews"] = "tasks",
+        ["EntityViews"] = "tasks",
         ["TaskBundles"] = "tasks",
         ["TaskDependencies"] = "tasks",
         ["TaskDependencyTemplates"] = "tasks",
@@ -160,7 +161,9 @@ public sealed class SwaggerClientGenerator : ISourceGenerator
         ["CompanyFiles"] = "company-files",
         ["CompanyTags"] = "company-tags",
         ["CommentFiles"] = "comment-files",
-        ["FileUpload"] = "upload"
+        ["FileUpload"] = "upload",
+        ["TaskViews"] = "task-views",
+        ["EntityViews"] = "entity-views",
     };
 
     private static readonly HashSet<string> RootTags = new(StringComparer.OrdinalIgnoreCase)
@@ -1066,6 +1069,7 @@ public sealed class SwaggerClientGenerator : ISourceGenerator
         ["taskschedules"] = "task-schedules",
         ["tasktemplates"] = "task-templates",
         ["taskviews"] = "task-views",
+        ["entityviews"] = "entity-views",
         ["temporaryfiles"] = "temporary-files",
         ["timebookings"] = "time-bookings",
         ["timeentries"] = "time-entries",
