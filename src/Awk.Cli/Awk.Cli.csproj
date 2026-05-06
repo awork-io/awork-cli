@@ -4,6 +4,9 @@
     <TargetFramework>net10.0</TargetFramework>
     <AssemblyName>awork</AssemblyName>
     <RootNamespace>Awk</RootNamespace>
+    <Version>0.0.0-dev</Version>
+    <InformationalVersion>0.0.0-dev</InformationalVersion>
+    <IncludeSourceRevisionInInformationalVersion>false</IncludeSourceRevisionInInformationalVersion>
     <ImplicitUsings>enable</ImplicitUsings>
     <Nullable>enable</Nullable>
     <EmitCompilerGeneratedFiles>true</EmitCompilerGeneratedFiles>

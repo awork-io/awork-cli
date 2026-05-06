@@ -781,6 +781,15 @@ public sealed class CliIntegrationTests
     }
 
     [Fact]
+    public async Task VersionOption_UsesConfiguredApplicationVersion()
+    {
+        var result = await RunCliAsyncWithoutToken(new Uri("http://127.0.0.1:1/"), "--version");
+
+        Assert.Equal(0, result.ExitCode);
+        Assert.Contains(VersionInfo.Version, result.StdOut);
+    }
+
+    [Fact]
     public async Task JsonEnvelope_SupportsJqStyleExtraction()
     {
         using var server = new TestServer(async ctx =>

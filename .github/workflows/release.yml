@@ -4,6 +4,20 @@ on:
   push:
     branches:
       - main
+  workflow_dispatch:
+    inputs:
+      version:
+        description: "Release version (e.g. 0.1.0)"
+        required: true
+        type: string
+      prerelease:
+        description: "Mark GitHub release as prerelease"
+        required: false
+        default: "false"
+        type: choice
+        options:
+          - "false"
+          - "true"
 
 permissions:
   contents: write
@@ -12,19 +26,29 @@ jobs:
   version:
     runs-on: ubuntu-latest
     outputs:
-      tag: ${{ steps.bump.outputs.new_tag }}
-      version: ${{ steps.bump.outputs.new_version }}
+      tag: ${{ steps.version.outputs.tag }}
+      version: ${{ steps.version.outputs.version }}
+      prerelease: ${{ steps.version.outputs.prerelease }}
     steps:
-      - uses: actions/checkout@v4
-        with:
-          fetch-depth: 0
-
-      - name: Bump version and create tag
-        id: bump
-        uses: mathieudutour/github-tag-action@v6.2
-        with:
-          github_token: ${{ secrets.GITHUB_TOKEN }}
-          default_bump: patch
+      - name: Resolve version
+        id: version
+        shell: bash
+        run: |
+          set -euo pipefail
+          if [[ "$GITHUB_EVENT_NAME" == "workflow_dispatch" ]]; then
+            version="${{ inputs.version }}"
+            prerelease="${{ inputs.prerelease }}"
+          else
+            version="0.2.${GITHUB_RUN_NUMBER}"
+            prerelease="false"
+          fi
+          if [[ ! "$version" =~ ^[0-9]+\.[0-9]+\.[0-9]+(-[0-9A-Za-z.-]+)?$ ]]; then
+            echo "::error::Version must look like 0.2.0 or 0.2.0-beta.1"
+            exit 1
+          fi
+          echo "version=$version" >> "$GITHUB_OUTPUT"
+          echo "tag=v$version" >> "$GITHUB_OUTPUT"
+          echo "prerelease=$prerelease" >> "$GITHUB_OUTPUT"
 
   build:
     needs: version
@@ -55,7 +79,13 @@ jobs:
           dotnet-version: '10.0.x'
 
       - name: Publish
-        run: dotnet publish src/Awk.Cli -c Release -r ${{ matrix.rid }} -o publish
+        run: >
+          dotnet publish src/Awk.Cli
+          -c Release
+          -r ${{ matrix.rid }}
+          -o publish
+          /p:Version=${{ needs.version.outputs.version }}
+          /p:InformationalVersion=${{ needs.version.outputs.version }}
 
       - name: Package (Unix)
         if: runner.os != 'Windows'
@@ -88,6 +118,7 @@ jobs:
           tag_name: ${{ needs.version.outputs.tag }}
           files: artifacts/*
           generate_release_notes: true
+          prerelease: ${{ needs.version.outputs.prerelease == 'true' }}
 
   homebrew:
     needs: [version, release]
