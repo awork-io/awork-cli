@@ -43,7 +43,7 @@ $ awork users list --page-size 3
 ### Homebrew (macOS/Linux)
 
 ```bash
-brew tap awork-io/awork-cli
+brew tap awork-io/tap
 brew install awork-cli
 ```
 

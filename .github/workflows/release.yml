@@ -111,8 +111,8 @@ jobs:
           SHA_X64=$(sha256sum x64.tar.gz | cut -d' ' -f1)
           SHA_LINUX=$(sha256sum linux.tar.gz | cut -d' ' -f1)
 
-          # Clone homebrew-awork-cli
-          git clone "https://x-access-token:${GH_TOKEN}@github.com/awork-io/homebrew-awork-cli.git" tap
+          # Clone shared Homebrew tap
+          git clone "https://x-access-token:${GH_TOKEN}@github.com/awork-io/homebrew-tap.git" tap
           cd tap
 
           # Update formula

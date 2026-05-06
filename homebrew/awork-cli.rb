@@ -1,5 +1,5 @@
 # Homebrew formula for awork-cli
-# To use: copy to awork-io/homebrew-awork-cli repo as Formula/awork-cli.rb
+# To use: copy to awork-io/homebrew-tap repo as Formula/awork-cli.rb
 
 class AworkCli < Formula
   desc "Token-only, swagger-driven CLI for awork"
