@@ -80,11 +80,10 @@ internal sealed class AuthLoginCommand : CommandBase<AuthLoginSettings>
 
             if (string.IsNullOrWhiteSpace(clientId))
             {
-                var version = typeof(AuthLoginCommand).Assembly.GetName().Version?.ToString();
                 var registration = await AworkOAuthService.RegisterClient(
                     Guid.NewGuid().ToString("N"),
                     clientName,
-                    version,
+                    VersionInfo.Version,
                     redirectUri,
                     scopes,
                     cancellationToken);

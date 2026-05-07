@@ -1,3 +1,4 @@
+using Awk.Cli;
 using Awk.Commands;
 using Awk.Generated;
 using Spectre.Console.Cli;
@@ -7,6 +8,7 @@ var app = new CommandApp();
 app.Configure(config =>
 {
     config.SetApplicationName("awork");
+    config.SetApplicationVersion(VersionInfo.Version);
 
     config.AddBranch("auth", auth =>
     {

@@ -422,11 +422,16 @@ Output: `src/Awk.CodeGen/bin/Release/Awk.CodeGen.*.nupkg`
 
 ### Create a Release
 
-Push a version tag to trigger the release workflow:
+Every push to `main` runs the release workflow. Push-triggered releases use an automatic
+version based on the GitHub Actions run number, for example `0.2.1234`. The same
+version is stamped into the binary, so `awork --version` matches the GitHub release.
+
+You can also run the release workflow manually when you need an explicit version:
 
 ```bash
-git tag v0.1.0
-git push origin v0.1.0
+gh workflow run release.yml \
+  -f version=0.2.0 \
+  -f prerelease=false
 ```
 
 This will:
