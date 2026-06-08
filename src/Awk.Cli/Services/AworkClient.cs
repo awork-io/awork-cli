@@ -63,6 +63,50 @@ public sealed partial class AworkClient
         throw new InvalidOperationException("Rate limit retry loop exhausted.");
     }
 
+    public async Task<ResponseEnvelope<object?>> Download(
+        string method,
+        string path,
+        Dictionary<string, object?>? query,
+        Stream destination,
+        CancellationToken cancellationToken)
+    {
+        var url = BuildUrl(path, query);
+        var httpMethod = new HttpMethod(method);
+        var select = GetSelectQuery(query);
+        const int maxAttempts = 3;
+
+        for (var attempt = 1; attempt <= maxAttempts; attempt++)
+        {
+            using var request = new HttpRequestMessage(httpMethod, url);
+            using var response = await _http.SendAsync(request, HttpCompletionOption.ResponseHeadersRead, cancellationToken);
+            if (response.StatusCode == HttpStatusCode.TooManyRequests && attempt < maxAttempts)
+            {
+                var delay = GetRetryDelay(response.Headers, attempt);
+                if (delay > TimeSpan.Zero)
+                {
+                    await Task.Delay(delay, cancellationToken);
+                }
+                continue;
+            }
+
+            if (response.StatusCode is < HttpStatusCode.OK or >= HttpStatusCode.MultipleChoices)
+            {
+                return await BuildEnvelopeAsync(response, select, cancellationToken);
+            }
+
+            if (response.Content is not null)
+            {
+                await using var stream = await response.Content.ReadAsStreamAsync(cancellationToken);
+                await stream.CopyToAsync(destination, cancellationToken);
+                await destination.FlushAsync(cancellationToken);
+            }
+
+            return new ResponseEnvelope<object?>((int)response.StatusCode, ExtractTraceId(response.Headers), null);
+        }
+
+        throw new InvalidOperationException("Rate limit retry loop exhausted.");
+    }
+
     private async Task<Func<HttpContent?>?> BuildContentFactory(object? body, string? contentType, CancellationToken cancellationToken)
     {
         if (body is null) return null;
