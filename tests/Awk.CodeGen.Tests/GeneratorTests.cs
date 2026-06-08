@@ -387,6 +387,30 @@ public sealed class GeneratorTests
         Assert.Contains("This PUT endpoint requires explicit JSON via --body because no fetch-by-id route exists for safe merge.", cli);
     }
 
+    [Fact]
+    public void BinaryResponseCommands_StreamRawBytes()
+    {
+        var cli = GeneratedSources.Value.Cli;
+        var client = GeneratedSources.Value.Client;
+
+        Assert.Contains("public Task<Awk.Models.ResponseEnvelope<object?>> GetFile(string fileId, Stream destination, Dictionary<string, object?>? query = null, CancellationToken cancellationToken = default)", client);
+        Assert.Contains("return Download(\"GET\", $\"/files/{Escape(fileId)}/download\", query, destination, cancellationToken);", client);
+        Assert.Contains("[CommandOption(\"--file <PATH>\")]", cli);
+        Assert.Contains("var result = await client.GetFile(settings.FileId, destination, query, cancellationToken);", cli);
+        Assert.Contains("return result.StatusCode is >= 200 and <= 299 ? 0 : Output(result);", cli);
+    }
+
+    [Fact]
+    public void NonBinaryResponseCommands_KeepJsonOutput()
+    {
+        var cli = GeneratedSources.Value.Cli;
+        var client = GeneratedSources.Value.Client;
+
+        Assert.Contains("public Task<Awk.Models.ResponseEnvelope<object?>> GetCommentFileVersionContent(string commentId, string fileId, string versionId, Dictionary<string, object?>? query = null, CancellationToken cancellationToken = default)", client);
+        Assert.Contains("return Call(\"GET\", $\"/comments/{Escape(commentId)}/files/{Escape(fileId)}/versions/{Escape(versionId)}/download\", query, null, null, cancellationToken);", client);
+        Assert.Contains("var result = await client.GetCommentFileVersionContent(settings.CommentId, settings.FileId, settings.VersionId, query, cancellationToken);", cli);
+    }
+
     private static IEnumerable<string> ExtractCommandNames(string cliSource)
     {
         var matches = Regex.Matches(cliSource, "AddCommand<[^>]+>\\(\\\"([a-z0-9\\-]+)\\\"\\)");

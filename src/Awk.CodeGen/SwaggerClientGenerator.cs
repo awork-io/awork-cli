@@ -257,6 +257,7 @@ public sealed class SwaggerClientGenerator : ISourceGenerator
         sb.AppendLine("#nullable enable");
         sb.AppendLine("using System;");
         sb.AppendLine("using System.Collections.Generic;");
+        sb.AppendLine("using System.IO;");
         sb.AppendLine("using System.Threading;");
         sb.AppendLine("using System.Threading.Tasks;");
         sb.AppendLine();
@@ -291,6 +292,13 @@ public sealed class SwaggerClientGenerator : ISourceGenerator
                 }
             }
 
+            if (op.IsBinaryResponse)
+            {
+                if (!first) sb.Append(", ");
+                first = false;
+                sb.Append("Stream destination");
+            }
+
             if (!first) sb.Append(", ");
             first = false;
             sb.Append("Dictionary<string, object?>? query = null");
@@ -303,18 +311,29 @@ public sealed class SwaggerClientGenerator : ISourceGenerator
 
             var pathExpr = BuildPathExpression(op.Path, pathParams);
             var queryArg = "query";
-            var bodyArg = op.HasBody ? "body" : "null";
-            var contentArg = string.IsNullOrWhiteSpace(op.ContentType) ? "null" : "\"" + op.ContentType + "\"";
+            if (op.IsBinaryResponse)
+            {
+                sb.Append("        return Download(\"").Append(op.Method).Append("\", ")
+                    .Append(pathExpr)
+                    .Append(", ")
+                    .Append(queryArg)
+                    .Append(", destination, cancellationToken);");
+            }
+            else
+            {
+                var bodyArg = op.HasBody ? "body" : "null";
+                var contentArg = string.IsNullOrWhiteSpace(op.ContentType) ? "null" : "\"" + op.ContentType + "\"";
 
-            sb.Append("        return Call(\"").Append(op.Method).Append("\", ")
-                .Append(pathExpr)
-                .Append(", ")
-                .Append(queryArg)
-                .Append(", ")
-                .Append(bodyArg)
-                .Append(", ")
-                .Append(contentArg)
-                .Append(", cancellationToken);");
+                sb.Append("        return Call(\"").Append(op.Method).Append("\", ")
+                    .Append(pathExpr)
+                    .Append(", ")
+                    .Append(queryArg)
+                    .Append(", ")
+                    .Append(bodyArg)
+                    .Append(", ")
+                    .Append(contentArg)
+                    .Append(", cancellationToken);");
+            }
             sb.AppendLine();
             sb.AppendLine("    }");
             sb.AppendLine();
@@ -390,6 +409,7 @@ public sealed class SwaggerClientGenerator : ISourceGenerator
         sb.AppendLine("#nullable enable");
         sb.AppendLine("using System;");
         sb.AppendLine("using System.Collections.Generic;");
+        sb.AppendLine("using System.IO;");
         sb.AppendLine("using System.Linq;");
         sb.AppendLine("using Spectre.Console.Cli;");
         sb.AppendLine("using Awk.Commands;");
@@ -561,6 +581,13 @@ public sealed class SwaggerClientGenerator : ISourceGenerator
                 sb.AppendLine();
             }
 
+            if (op.IsBinaryResponse)
+            {
+                sb.AppendLine("        [CommandOption(\"--file <PATH>\")]");
+                sb.AppendLine("        public string? File { get; init; }");
+                sb.AppendLine();
+            }
+
             if (op.HasBody)
             {
                 sb.AppendLine("        [CommandOption(\"--body <JSON_OR_@FILE>\")]");
@@ -720,29 +747,74 @@ public sealed class SwaggerClientGenerator : ISourceGenerator
                 }
             }
 
-            var methodCall = new StringBuilder();
-            methodCall.Append($"            var result = await client.{op.MethodName}(");
-            var argFirst = true;
-            foreach (var param in pathParams)
+            if (op.IsBinaryResponse)
             {
+                sb.AppendLine("            Stream destination;");
+                sb.AppendLine("            await using var fileStream = !string.IsNullOrWhiteSpace(settings.File)");
+                sb.AppendLine("                ? System.IO.File.Create(settings.File)");
+                sb.AppendLine("                : null;");
+                sb.AppendLine("            if (fileStream is not null)");
+                sb.AppendLine("            {");
+                sb.AppendLine("                destination = fileStream;");
+                sb.AppendLine("            }");
+                sb.AppendLine("            else");
+                sb.AppendLine("            {");
+                sb.AppendLine("                destination = Console.OpenStandardOutput();");
+                sb.AppendLine("            }");
+
+                var methodCall = new StringBuilder();
+                methodCall.Append($"            var result = await client.{op.MethodName}(");
+                var argFirst = true;
+                foreach (var param in pathParams)
+                {
+                    if (!argFirst) methodCall.Append(", ");
+                    argFirst = false;
+                    methodCall.Append($"settings.{param.PropertyName}");
+                }
+                if (op.HasBody)
+                {
+                    if (!argFirst) methodCall.Append(", ");
+                    argFirst = false;
+                    methodCall.Append("body");
+                }
                 if (!argFirst) methodCall.Append(", ");
                 argFirst = false;
-                methodCall.Append($"settings.{param.PropertyName}");
-            }
-            if (op.HasBody)
-            {
+                methodCall.Append("destination");
                 if (!argFirst) methodCall.Append(", ");
                 argFirst = false;
-                methodCall.Append("body");
+                methodCall.Append("query");
+                if (!argFirst) methodCall.Append(", ");
+                methodCall.Append("cancellationToken");
+                methodCall.Append(");");
+                sb.AppendLine(methodCall.ToString());
+                sb.AppendLine("            return result.StatusCode is >= 200 and <= 299 ? 0 : Output(result);");
             }
-            if (!argFirst) methodCall.Append(", ");
-            argFirst = false;
-            methodCall.Append("query");
-            if (!argFirst) methodCall.Append(", ");
-            methodCall.Append("cancellationToken");
-            methodCall.Append(");");
-            sb.AppendLine(methodCall.ToString());
-            sb.AppendLine("            return Output(result);");
+            else
+            {
+                var methodCall = new StringBuilder();
+                methodCall.Append($"            var result = await client.{op.MethodName}(");
+                var argFirst = true;
+                foreach (var param in pathParams)
+                {
+                    if (!argFirst) methodCall.Append(", ");
+                    argFirst = false;
+                    methodCall.Append($"settings.{param.PropertyName}");
+                }
+                if (op.HasBody)
+                {
+                    if (!argFirst) methodCall.Append(", ");
+                    argFirst = false;
+                    methodCall.Append("body");
+                }
+                if (!argFirst) methodCall.Append(", ");
+                argFirst = false;
+                methodCall.Append("query");
+                if (!argFirst) methodCall.Append(", ");
+                methodCall.Append("cancellationToken");
+                methodCall.Append(");");
+                sb.AppendLine(methodCall.ToString());
+                sb.AppendLine("            return Output(result);");
+            }
             sb.AppendLine("        }");
             sb.AppendLine("        catch (Exception ex)");
             sb.AppendLine("        {");
@@ -829,6 +901,7 @@ public sealed class SwaggerClientGenerator : ISourceGenerator
                 EnsurePathParameters(path, parameters);
                 var (hasBody, bodyRequired, contentType) = GetRequestBody(op);
                 var bodyProperties = GetBodyPropertyInfos(op, schemaMap);
+                var isBinaryResponse = HasBinaryResponse(op, schemaMap);
 
                 var methodName = SanitizeIdentifier(opId!);
                 if (IsGenericOperationId(methodName))
@@ -858,7 +931,8 @@ public sealed class SwaggerClientGenerator : ISourceGenerator
                     hasBody,
                     bodyRequired,
                     contentType,
-                    bodyProperties));
+                    bodyProperties,
+                    isBinaryResponse));
             }
         }
 
@@ -1319,7 +1393,8 @@ public sealed class SwaggerClientGenerator : ISourceGenerator
         bool HasBody,
         bool BodyRequired,
         string? ContentType,
-        List<BodyPropertyInfo>? BodyProperties
+        List<BodyPropertyInfo>? BodyProperties,
+        bool IsBinaryResponse
     );
 
     private enum BodyPropertyKind
@@ -1500,6 +1575,54 @@ public sealed class SwaggerClientGenerator : ISourceGenerator
         }
 
         return (true, required, "application/json");
+    }
+
+    private static bool HasBinaryResponse(JsonElement op, Dictionary<string, JsonElement> schemaMap)
+    {
+        if (!op.TryGetProperty("responses", out var responses) || responses.ValueKind != JsonValueKind.Object)
+        {
+            return false;
+        }
+
+        foreach (var response in responses.EnumerateObject())
+        {
+            if (!IsSuccessStatusCode(response.Name)) continue;
+            if (!response.Value.TryGetProperty("content", out var content) || content.ValueKind != JsonValueKind.Object) continue;
+
+            foreach (var mediaType in content.EnumerateObject())
+            {
+                if (!mediaType.Value.TryGetProperty("schema", out var schema)) continue;
+                if (IsBinarySchema(schema, schemaMap)) return true;
+            }
+        }
+
+        return false;
+    }
+
+    private static bool IsSuccessStatusCode(string statusCode)
+    {
+        if (string.Equals(statusCode, "default", StringComparison.OrdinalIgnoreCase)) return false;
+        if (!int.TryParse(statusCode, out var code)) return false;
+        return code is >= 200 and <= 299;
+    }
+
+    private static bool IsBinarySchema(JsonElement schema, Dictionary<string, JsonElement> schemaMap)
+    {
+        if (schema.ValueKind != JsonValueKind.Object) return false;
+
+        if (schema.TryGetProperty("$ref", out var refProp))
+        {
+            var refName = ExtractRefName(refProp.GetString() ?? string.Empty);
+            return schemaMap.TryGetValue(refName, out var refSchema) && IsBinarySchema(refSchema, schemaMap);
+        }
+
+        if (!schema.TryGetProperty("type", out var typeProp) || !schema.TryGetProperty("format", out var formatProp))
+        {
+            return false;
+        }
+
+        return string.Equals(typeProp.GetString(), "string", StringComparison.OrdinalIgnoreCase) &&
+            string.Equals(formatProp.GetString(), "binary", StringComparison.OrdinalIgnoreCase);
     }
 
     private static List<BodyPropertyInfo>? GetBodyPropertyInfos(JsonElement op, Dictionary<string, JsonElement> schemaMap)
