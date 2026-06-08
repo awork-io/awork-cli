@@ -3,6 +3,12 @@ using Awk.Commands;
 using Awk.Generated;
 using Spectre.Console.Cli;
 
+if (args is ["-v"] or ["--version"])
+{
+    Console.WriteLine($"awork {VersionInfo.Version}");
+    return 0;
+}
+
 var app = new CommandApp();
 
 app.Configure(config =>

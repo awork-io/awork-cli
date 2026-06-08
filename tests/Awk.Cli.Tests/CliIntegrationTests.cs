@@ -786,7 +786,26 @@ public sealed class CliIntegrationTests
         var result = await RunCliAsyncWithoutToken(new Uri("http://127.0.0.1:1/"), "--version");
 
         Assert.Equal(0, result.ExitCode);
-        Assert.Contains(VersionInfo.Version, result.StdOut);
+        Assert.Equal($"awork {VersionInfo.Version}", result.StdOut.Trim());
+    }
+
+    [Fact]
+    public async Task VersionShortOption_UsesConfiguredApplicationVersion()
+    {
+        var result = await RunCliAsyncWithoutToken(new Uri("http://127.0.0.1:1/"), "-v");
+
+        Assert.Equal(0, result.ExitCode);
+        Assert.Equal($"awork {VersionInfo.Version}", result.StdOut.Trim());
+    }
+
+    [Fact]
+    public async Task Help_IncludesVersionOption()
+    {
+        var result = await RunCliAsyncWithoutToken(new Uri("http://127.0.0.1:1/"), "--help");
+
+        Assert.Equal(0, result.ExitCode);
+        Assert.Contains("-v, --version", result.StdOut);
+        Assert.Contains("Prints version information", result.StdOut);
     }
 
     [Fact]
