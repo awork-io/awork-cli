@@ -228,6 +228,35 @@ USER_ID=$(awork users list --page-size 1 | jq -r '.response[0].id')
 awork tasks create --name "Welcome" --base-type private --entity-id "$USER_ID"
 ```
 
+## Deep Links
+
+Use `awork links` when you need to show a user a clickable awork app URL.
+
+```bash
+# Known entity type and id/key
+awork links get task <task-key-or-id>
+awork links get project <project-key-or-id>
+awork links get user <user-id>
+awork links get company <company-id>
+awork links get document <document-id>
+awork links get time-report <report-id>
+awork links get task-view <view-id>
+
+# Task-scoped links
+awork links get comment <comment-id> --task <task-key-or-id>
+awork links get task-list <task-list-id> --project <project-key-or-id>
+
+# Static app destinations
+awork links get dashboard
+awork links get account-settings
+awork links get planner
+awork links get whats-new
+
+# Resolve a task key or probe a UUID across supported entity types
+awork links resolve NIKE-42
+awork links resolve <entity-id>
+```
+
 ## Discovering Commands
 
 ```bash
@@ -316,6 +345,7 @@ Non-2xx responses still return the envelope:
 3. **Use `--page-size`** for large lists to avoid timeouts
 4. **Use `jq -r`** for raw string output (no quotes)
 5. **Use `jq -e`** for exit code based on expression result
-6. **Discover with `--help`** — commands match the API spec exactly
+6. **Use `awork links`** when reporting awork entities back to users
+7. **Discover with `--help`** — commands match the API spec exactly
 """;
 }

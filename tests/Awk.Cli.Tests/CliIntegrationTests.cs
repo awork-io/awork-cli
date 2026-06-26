@@ -845,6 +845,135 @@ public sealed class CliIntegrationTests
         Assert.Equal(2, response.GetArrayLength());
     }
 
+    [Theory]
+    [InlineData("project", "NIKE", "/projects/NIKE")]
+    [InlineData("task", "NIKE-42", "/tasks/NIKE-42")]
+    [InlineData("company", "company-1", "/companies/company-1")]
+    [InlineData("user", "user-1", "/users/user-1")]
+    [InlineData("document", "doc-1", "/docs/doc-1")]
+    [InlineData("time-report", "report-1", "/time-tracking/reports/report-1")]
+    [InlineData("task-view", "view-1", "/tasks/views/view-1")]
+    public async Task LinksGet_BuildsCanonicalAppEntityLinks(string type, string id, string expectedPath)
+    {
+        var result = await RunCliAsyncWithoutToken(new Uri("http://127.0.0.1:1/"), "links", "get", type, id);
+
+        Assert.Equal(0, result.ExitCode);
+        var output = JsonDocument.Parse(result.StdOut);
+        Assert.Equal(200, output.RootElement.GetProperty("statusCode").GetInt32());
+        var response = output.RootElement.GetProperty("response");
+        Assert.Equal(expectedPath, response.GetProperty("path").GetString());
+        Assert.Equal("https://app.awork.com" + expectedPath, response.GetProperty("url").GetString());
+        Assert.Equal("https://app.awork.com", response.GetProperty("baseUrl").GetString());
+    }
+
+    [Theory]
+    [InlineData("dashboard", "/my/dashboard")]
+    [InlineData("account-settings", "/my/profile/mysettings")]
+    [InlineData("planner", "/planner/timeline/users")]
+    [InlineData("whats-new", "/whats-new")]
+    public async Task LinksGet_BuildsStaticAppLinks(string type, string expectedPath)
+    {
+        var result = await RunCliAsyncWithoutToken(new Uri("http://127.0.0.1:1/"), "links", "get", type);
+
+        Assert.Equal(0, result.ExitCode);
+        var output = JsonDocument.Parse(result.StdOut);
+        var response = output.RootElement.GetProperty("response");
+        Assert.Equal(expectedPath, response.GetProperty("path").GetString());
+        Assert.Equal("https://app.awork.com" + expectedPath, response.GetProperty("url").GetString());
+    }
+
+    [Fact]
+    public async Task LinksGet_BuildsTaskCommentLink()
+    {
+        var result = await RunCliAsyncWithoutToken(
+            new Uri("http://127.0.0.1:1/"),
+            "links",
+            "get",
+            "comment",
+            "comment-1",
+            "--task",
+            "NIKE-42");
+
+        Assert.Equal(0, result.ExitCode);
+        var output = JsonDocument.Parse(result.StdOut);
+        var response = output.RootElement.GetProperty("response");
+        Assert.Equal("/tasks/NIKE-42?comment=comment-1", response.GetProperty("path").GetString());
+        Assert.Equal("https://app.awork.com/tasks/NIKE-42?comment=comment-1", response.GetProperty("url").GetString());
+    }
+
+    [Fact]
+    public async Task LinksGet_BuildsTaskListLink()
+    {
+        var result = await RunCliAsyncWithoutToken(
+            new Uri("http://127.0.0.1:1/"),
+            "links",
+            "get",
+            "task-list",
+            "list-1",
+            "--project",
+            "NIKE");
+
+        Assert.Equal(0, result.ExitCode);
+        var output = JsonDocument.Parse(result.StdOut);
+        var response = output.RootElement.GetProperty("response");
+        Assert.Equal("/projects/NIKE/tasks/list?list=list-1", response.GetProperty("path").GetString());
+        Assert.Equal("https://app.awork.com/projects/NIKE/tasks/list?list=list-1", response.GetProperty("url").GetString());
+    }
+
+    [Fact]
+    public async Task LinksResolve_TaskKey_DoesNotRequireAuth()
+    {
+        var result = await RunCliAsyncWithoutToken(new Uri("http://127.0.0.1:1/"), "links", "resolve", "NIKE-42");
+
+        Assert.Equal(0, result.ExitCode);
+        var output = JsonDocument.Parse(result.StdOut);
+        var response = output.RootElement.GetProperty("response");
+        Assert.Equal("task", response.GetProperty("type").GetString());
+        Assert.Equal("NIKE-42", response.GetProperty("id").GetString());
+        Assert.Equal("NIKE-42", response.GetProperty("key").GetString());
+        Assert.Equal("https://app.awork.com/tasks/NIKE-42", response.GetProperty("url").GetString());
+    }
+
+    [Fact]
+    public async Task LinksResolve_UuidProbesTaskViews()
+    {
+        const string taskViewId = "550e8400-e29b-41d4-a716-446655440000";
+        using var server = new TestServer(async ctx =>
+        {
+            if (ctx.Request.Url?.AbsolutePath == $"/taskviews/{taskViewId}")
+            {
+                ctx.Response.StatusCode = 200;
+                await HttpListenerExtensions.RespondJsonAsync(ctx.Response, "{\"id\":\"550e8400-e29b-41d4-a716-446655440000\"}");
+                return;
+            }
+
+            ctx.Response.StatusCode = 404;
+            await HttpListenerExtensions.RespondJsonAsync(ctx.Response, "{\"error\":\"not found\"}");
+        });
+
+        var result = await RunCliAsync(server.BaseUri, "links", "resolve", taskViewId);
+
+        Assert.Equal(0, result.ExitCode);
+        Assert.Contains(server.Requests, request => request.Path == $"/taskviews/{taskViewId}");
+        var output = JsonDocument.Parse(result.StdOut);
+        var response = output.RootElement.GetProperty("response");
+        Assert.Equal("task-view", response.GetProperty("type").GetString());
+        Assert.Equal(taskViewId, response.GetProperty("id").GetString());
+        Assert.Equal($"https://app.awork.com/tasks/views/{taskViewId}", response.GetProperty("url").GetString());
+    }
+
+    [Fact]
+    public async Task LinksGet_CommentWithoutTask_ReturnsErrorEnvelope()
+    {
+        var result = await RunCliAsyncWithoutToken(new Uri("http://127.0.0.1:1/"), "links", "get", "comment", "comment-1");
+
+        var output = JsonDocument.Parse(result.StdOut);
+        Assert.Equal(0, output.RootElement.GetProperty("statusCode").GetInt32());
+        Assert.Contains(
+            "task key or id is required",
+            output.RootElement.GetProperty("response").GetProperty("error").GetString());
+    }
+
     private static Task<CliResult> RunCliAsync(Uri baseUri, params string[] args) =>
         RunCliAsyncWithEnv(baseUri, true, null, args);
 
