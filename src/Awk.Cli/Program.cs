@@ -27,6 +27,14 @@ app.Configure(config =>
 
     config.AddCommand<DoctorCommand>("doctor")
         .WithDescription("Validate token and connectivity");
+    config.AddBranch("links", links =>
+    {
+        links.SetDescription("Build awork app deep links");
+        links.AddCommand<LinkGetCommand>("get")
+            .WithDescription("Build a deep link for a known app destination or entity");
+        links.AddCommand<LinkResolveCommand>("resolve")
+            .WithDescription("Resolve a task key or entity id to a deep link");
+    });
     config.AddBranch("skill", skill =>
     {
         skill.SetDescription("Skill file management for AI coding agents");

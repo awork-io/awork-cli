@@ -284,6 +284,37 @@ awork tasks create --name "Welcome" --base-type private --entity-id "$USER_ID"
 awork users me | jq -e '.statusCode == 200' > /dev/null && echo "OK" || echo "Failed"
 ```
 
+### Deep Links
+
+Build web links for awork app routes:
+
+```bash
+# Known entity type and ID/key
+awork links get task <task-key-or-id>
+awork links get project <project-key-or-id>
+awork links get user <user-id>
+awork links get company <company-id>
+awork links get document <document-id>
+awork links get time-report <report-id>
+awork links get task-view <view-id>
+
+# Task-scoped links
+awork links get comment <comment-id> --task <task-key-or-id>
+awork links get task-list <task-list-id> --project <project-key-or-id>
+
+# Static app destinations
+awork links get dashboard
+awork links get account-settings
+awork links get planner
+awork links get whats-new
+
+# Resolve a task key or probe a UUID across supported entity types
+awork links resolve NIKE-42
+awork links resolve <entity-id>
+```
+
+Links use `https://app.awork.com` as the app base URL.
+
 ### Real-World Workflow: Onboard a New Team Member
 
 **Step 1 — Invite the user (skip email for programmatic flow)**
