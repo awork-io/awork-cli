@@ -935,6 +935,34 @@ public sealed class CliIntegrationTests
     }
 
     [Fact]
+    public async Task LinksResolve_UuidProbesTaskViews()
+    {
+        const string taskViewId = "550e8400-e29b-41d4-a716-446655440000";
+        using var server = new TestServer(async ctx =>
+        {
+            if (ctx.Request.Url?.AbsolutePath == $"/taskviews/{taskViewId}")
+            {
+                ctx.Response.StatusCode = 200;
+                await HttpListenerExtensions.RespondJsonAsync(ctx.Response, "{\"id\":\"550e8400-e29b-41d4-a716-446655440000\"}");
+                return;
+            }
+
+            ctx.Response.StatusCode = 404;
+            await HttpListenerExtensions.RespondJsonAsync(ctx.Response, "{\"error\":\"not found\"}");
+        });
+
+        var result = await RunCliAsync(server.BaseUri, "links", "resolve", taskViewId);
+
+        Assert.Equal(0, result.ExitCode);
+        Assert.Contains(server.Requests, request => request.Path == $"/taskviews/{taskViewId}");
+        var output = JsonDocument.Parse(result.StdOut);
+        var response = output.RootElement.GetProperty("response");
+        Assert.Equal("task-view", response.GetProperty("type").GetString());
+        Assert.Equal(taskViewId, response.GetProperty("id").GetString());
+        Assert.Equal($"https://app.awork.com/tasks/views/{taskViewId}", response.GetProperty("url").GetString());
+    }
+
+    [Fact]
     public async Task LinksGet_CommentWithoutTask_ReturnsErrorEnvelope()
     {
         var result = await RunCliAsyncWithoutToken(new Uri("http://127.0.0.1:1/"), "links", "get", "comment", "comment-1");

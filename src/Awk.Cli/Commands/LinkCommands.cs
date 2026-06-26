@@ -81,7 +81,8 @@ internal static class LinkResolver
         new("project", "/projects/{0}"),
         new("user", "/users/{0}"),
         new("company", "/companies/{0}"),
-        new("document", "/documents/{0}")
+        new("document", "/documents/{0}"),
+        new("task-view", "/taskviews/{0}")
     ];
 
     internal static async Task<LinkTarget> ResolveId(Awk.Generated.AworkClient client, string id, CancellationToken cancellationToken)
