@@ -218,6 +218,10 @@ awork users list --output table --select "firstName,lastName"
 # Get user by ID (positional path param)
 awork users get 550e8400-e29b-41d4-a716-446655440000
 
+# Get tasks/projects by UUID or human-readable key
+awork tasks get BUG-1
+awork projects get BUG
+
 # Search with filters
 awork search get-search \
   --search-term "agent" \
@@ -443,6 +447,19 @@ dotnet test
 ./scripts/test-unit.sh        # Unit tests
 ```
 
+### Refresh Swagger
+
+The CLI generator reads the checked-in `swagger.json`. To pick up API changes from the awork app, refresh that file first:
+
+```bash
+./scripts/update-swagger.sh
+dotnet build
+```
+
+By default the script reads `../app/backend/services/ai-service/service/Assets/AworkOpenApiV1.json`.
+Set `AWORK_OPENAPI_SOURCE=/path/to/AworkOpenApiV1.json` to use another file.
+Set `API_BASE_URL=https://app.cwork.io` to fetch the live docs endpoint instead, matching the app repo's API client generation flow.
+
 ### Package the Source Generator
 
 ```bash
@@ -502,7 +519,8 @@ This will:
 └─────────────────────────────────────────────────────────────┘
 ```
 
-**When the Swagger spec changes, just rebuild.** No manual updates required.
+**Rebuilding regenerates the CLI from the current `swagger.json`; it does not fetch a newer app spec by itself.**
+Refresh `swagger.json` first when the app OpenAPI contract changes. No manual DTO updates are required.
 
 ---
 
@@ -521,7 +539,7 @@ awork-cli/
 │   ├── Awk.CodeGen.Tests/    # Generator unit tests
 │   └── Awk.Cli.Tests/        # CLI integration tests
 ├── homebrew/                 # Homebrew formula template
-├── scripts/                  # Test helpers
+├── scripts/                  # Test and Swagger helpers
 ├── samples/                  # Example JSON payloads
 └── swagger.json              # awork OpenAPI spec
 ```

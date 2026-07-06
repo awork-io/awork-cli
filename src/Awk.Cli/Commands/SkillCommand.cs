@@ -168,12 +168,12 @@ awork users list --page-size 10 --select "id,firstName,lastName,email"
 awork users list --output table --select "firstName,lastName"
 ```
 
-### Get by ID (positional argument)
+### Get by ID or key (positional argument)
 
 ```bash
 awork users get <user-id>
-awork tasks get <task-id>
-awork projects get <project-id>
+awork tasks get <task-id-or-identifier>
+awork projects get <project-id-or-key>
 ```
 
 ### Create with inline options
@@ -288,7 +288,7 @@ awork users delete <id>               # Delete user
 
 ```bash
 awork tasks list                      # List tasks
-awork tasks get <id>                  # Get task
+awork tasks get <id-or-identifier>    # Get task
 awork tasks create --name X --base-type private --entity-id <user-id>
 awork tasks update <id> --name "New name"
 awork tasks delete <id>
@@ -298,7 +298,7 @@ awork tasks delete <id>
 
 ```bash
 awork projects list                   # List projects
-awork projects get <id>               # Get project
+awork projects get <id-or-key>        # Get project
 awork projects create --name X        # Create project
 ```
 

@@ -168,7 +168,7 @@ public sealed class CliIntegrationTests
     }
 
     [Fact]
-    public async Task UsersAssign_RejectsShorthandBodyOptionsWithoutMergeRoute()
+    public async Task UsersAssign_BuildsBodyFromOptions()
     {
         using var server = new TestServer(async ctx =>
         {
@@ -186,12 +186,15 @@ public sealed class CliIntegrationTests
             "--set-json",
             "userIds=[\"user-1\",\"user-2\"]");
 
-        var output = JsonDocument.Parse(result.StdOut);
-        Assert.Equal(0, output.RootElement.GetProperty("statusCode").GetInt32());
-        Assert.Contains(
-            "requires explicit JSON via --body",
-            output.RootElement.GetProperty("response").GetProperty("error").GetString());
-        Assert.Empty(server.Requests);
+        Assert.Equal(0, result.ExitCode);
+        var request = server.Requests.Single();
+        Assert.Equal("POST", request.Method);
+        Assert.Equal("/absenceregions/users/assign", request.Path);
+
+        var body = JsonDocument.Parse(request.Body ?? "{}");
+        Assert.Equal("region-1", body.RootElement.GetProperty("regionId").GetString());
+        var ids = body.RootElement.GetProperty("userIds").EnumerateArray().Select(x => x.GetString()).ToList();
+        Assert.Equal(new[] { "user-1", "user-2" }, ids);
     }
 
     [Fact]
@@ -213,7 +216,7 @@ public sealed class CliIntegrationTests
 
         Assert.Equal(0, result.ExitCode);
         var request = server.Requests.Single();
-        Assert.Equal("PUT", request.Method);
+        Assert.Equal("POST", request.Method);
         Assert.Equal("/absenceregions/users/assign", request.Path);
 
         var body = JsonDocument.Parse(request.Body ?? "{}");
@@ -420,7 +423,7 @@ public sealed class CliIntegrationTests
     }
 
     [Fact]
-    public async Task SetJson_FileArray_RejectsWithoutMergeRoute()
+    public async Task SetJson_FileArray_BuildsBodyFromFile()
     {
         using var server = new TestServer(async ctx =>
         {
@@ -441,12 +444,15 @@ public sealed class CliIntegrationTests
             "--set-json",
             "userIds=@" + tempFile);
 
-        var output = JsonDocument.Parse(result.StdOut);
-        Assert.Equal(0, output.RootElement.GetProperty("statusCode").GetInt32());
-        Assert.Contains(
-            "requires explicit JSON via --body",
-            output.RootElement.GetProperty("response").GetProperty("error").GetString());
-        Assert.Empty(server.Requests);
+        Assert.Equal(0, result.ExitCode);
+        var request = server.Requests.Single();
+        Assert.Equal("POST", request.Method);
+        Assert.Equal("/absenceregions/users/assign", request.Path);
+
+        var body = JsonDocument.Parse(request.Body ?? "{}");
+        Assert.Equal("region-1", body.RootElement.GetProperty("regionId").GetString());
+        var ids = body.RootElement.GetProperty("userIds").EnumerateArray().Select(x => x.GetString()).ToList();
+        Assert.Equal(new[] { "u1", "u2" }, ids);
     }
 
     [Fact]
@@ -656,6 +662,108 @@ public sealed class CliIntegrationTests
         var request = server.Requests.Single();
         Assert.Equal("2", request.Query["page"]);
         Assert.Equal("5", request.Query["pageSize"]);
+    }
+
+    [Fact]
+    public async Task TasksGet_ResolvesTaskIdentifier()
+    {
+        const string taskId = "550e8400-e29b-41d4-a716-446655440001";
+        using var server = new TestServer(async ctx =>
+        {
+            var path = ctx.Request.Url?.AbsolutePath ?? string.Empty;
+            if (path == "/tasks/key/BUG-1")
+            {
+                ctx.Response.StatusCode = 200;
+                await HttpListenerExtensions.RespondJsonAsync(ctx.Response, $$"""
+                    {"id": "{{taskId}}", "taskIdentifier": "BUG-1", "name": "Bug task"}
+                    """);
+                return;
+            }
+
+            ctx.Response.StatusCode = 404;
+            await HttpListenerExtensions.RespondJsonAsync(ctx.Response, "{\"error\":\"not found\"}");
+        });
+
+        var result = await RunCliAsync(server.BaseUri, "tasks", "get", "BUG-1");
+
+        Assert.Equal(0, result.ExitCode);
+        var output = JsonDocument.Parse(result.StdOut);
+        Assert.Equal(taskId, output.RootElement.GetProperty("response").GetProperty("id").GetString());
+
+        var request = server.Requests.Single();
+        Assert.Equal("GET", request.Method);
+        Assert.Equal("/tasks/key/BUG-1", request.Path);
+    }
+
+    [Fact]
+    public async Task ProjectsGet_ResolvesProjectKey()
+    {
+        const string projectId = "550e8400-e29b-41d4-a716-446655440002";
+        using var server = new TestServer(async ctx =>
+        {
+            var path = ctx.Request.Url?.AbsolutePath ?? string.Empty;
+            if (path == "/projects/key/BUG")
+            {
+                ctx.Response.StatusCode = 200;
+                await HttpListenerExtensions.RespondJsonAsync(ctx.Response, $$"""
+                    {"id": "{{projectId}}", "projectKey": "BUG", "name": "Bug project"}
+                    """);
+                return;
+            }
+
+            ctx.Response.StatusCode = 404;
+            await HttpListenerExtensions.RespondJsonAsync(ctx.Response, "{\"error\":\"not found\"}");
+        });
+
+        var result = await RunCliAsync(server.BaseUri, "projects", "get", "BUG");
+
+        Assert.Equal(0, result.ExitCode);
+        var output = JsonDocument.Parse(result.StdOut);
+        Assert.Equal(projectId, output.RootElement.GetProperty("response").GetProperty("id").GetString());
+
+        var request = server.Requests.Single();
+        Assert.Equal("GET", request.Method);
+        Assert.Equal("/projects/key/BUG", request.Path);
+    }
+
+    [Fact]
+    public async Task TasksGet_GuidUsesIdRoute()
+    {
+        const string taskId = "550e8400-e29b-41d4-a716-446655440003";
+        using var server = new TestServer(async ctx =>
+        {
+            ctx.Response.StatusCode = 200;
+            await HttpListenerExtensions.RespondJsonAsync(ctx.Response, $$"""
+                {"id": "{{taskId}}", "name": "Task by id"}
+                """);
+        });
+
+        var result = await RunCliAsync(server.BaseUri, "tasks", "get", taskId);
+
+        Assert.Equal(0, result.ExitCode);
+        var request = server.Requests.Single();
+        Assert.Equal("GET", request.Method);
+        Assert.Equal($"/tasks/{taskId}", request.Path);
+    }
+
+    [Fact]
+    public async Task ProjectsGet_GuidUsesIdRoute()
+    {
+        const string projectId = "550e8400-e29b-41d4-a716-446655440004";
+        using var server = new TestServer(async ctx =>
+        {
+            ctx.Response.StatusCode = 200;
+            await HttpListenerExtensions.RespondJsonAsync(ctx.Response, $$"""
+                {"id": "{{projectId}}", "name": "Project by id"}
+                """);
+        });
+
+        var result = await RunCliAsync(server.BaseUri, "projects", "get", projectId);
+
+        Assert.Equal(0, result.ExitCode);
+        var request = server.Requests.Single();
+        Assert.Equal("GET", request.Method);
+        Assert.Equal($"/projects/{projectId}", request.Path);
     }
 
     [Fact]

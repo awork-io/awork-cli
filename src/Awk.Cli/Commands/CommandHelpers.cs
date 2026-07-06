@@ -1,11 +1,41 @@
 using System.Text.Json;
 using System.Text.Json.Nodes;
 using System.Linq;
+using Awk.Models;
+using AworkClient = Awk.Generated.AworkClient;
 
 namespace Awk.Commands;
 
 internal static class CommandHelpers
 {
+    internal static Task<ResponseEnvelope<object?>> GetTaskByIdOrIdentifier(
+        AworkClient client,
+        string taskIdOrIdentifier,
+        Dictionary<string, object?>? query,
+        CancellationToken cancellationToken)
+    {
+        return GetByIdOrKeyEndpoint(
+            taskIdOrIdentifier,
+            (id, finalQuery, ct) => client.GetTaskById(id, finalQuery, ct),
+            (identifier, finalQuery, ct) => client.GetTasksKeyByTaskIdentifier(identifier, finalQuery, ct),
+            query,
+            cancellationToken);
+    }
+
+    internal static Task<ResponseEnvelope<object?>> GetProjectByIdOrKey(
+        AworkClient client,
+        string projectIdOrKey,
+        Dictionary<string, object?>? query,
+        CancellationToken cancellationToken)
+    {
+        return GetByIdOrKeyEndpoint(
+            projectIdOrKey,
+            (id, finalQuery, ct) => client.GetProjectById(id, finalQuery, ct),
+            (key, finalQuery, ct) => client.GetProjectsKeyByProjectKey(key, finalQuery, ct),
+            query,
+            cancellationToken);
+    }
+
     internal static object? ResolveBody(string? raw)
     {
         if (string.IsNullOrWhiteSpace(raw)) return null;
@@ -72,6 +102,21 @@ internal static class CommandHelpers
         if (basePairs is not null) list.AddRange(basePairs);
         if (extraPairs is not null) list.AddRange(extraPairs);
         return list.Count == 0 ? null : list;
+    }
+
+    private static Task<ResponseEnvelope<object?>> GetByIdOrKeyEndpoint(
+        string idOrKey,
+        Func<string, Dictionary<string, object?>?, CancellationToken, Task<ResponseEnvelope<object?>>> getById,
+        Func<string, Dictionary<string, object?>?, CancellationToken, Task<ResponseEnvelope<object?>>> getByKey,
+        Dictionary<string, object?>? finalQuery,
+        CancellationToken cancellationToken)
+    {
+        if (Guid.TryParse(idOrKey, out _))
+        {
+            return getById(idOrKey, finalQuery, cancellationToken);
+        }
+
+        return getByKey(idOrKey, finalQuery, cancellationToken);
     }
 
     private static void ApplyPairs(JsonNode root, IEnumerable<string>? pairs, bool treatAsJson)
