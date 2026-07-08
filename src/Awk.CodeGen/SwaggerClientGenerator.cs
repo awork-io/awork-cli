@@ -90,8 +90,10 @@ public sealed class SwaggerClientGenerator : ISourceGenerator
         ["TaskBundles"] = "tasks",
         ["TaskDependencies"] = "tasks",
         ["TaskDependencyTemplates"] = "tasks",
+        ["Task Activities"] = "tasks",
         ["TaskTemplates"] = "tasks",
         ["TaskTemplateFiles"] = "tasks",
+        ["TaskTemplateTags"] = "tasks",
         ["ChecklistItems"] = "tasks",
 
         ["Projects"] = "projects",
@@ -100,6 +102,7 @@ public sealed class SwaggerClientGenerator : ISourceGenerator
         ["ProjectComments"] = "projects",
         ["ProjectFiles"] = "projects",
         ["ProjectTags"] = "projects",
+        ["Project Activities"] = "projects",
         ["ProjectStatuses"] = "projects",
         ["ProjectRoles"] = "projects",
         ["ProjectTypes"] = "projects",
@@ -116,6 +119,7 @@ public sealed class SwaggerClientGenerator : ISourceGenerator
         ["TimeBookings"] = "times",
         ["TimeReports"] = "times",
         ["TimeTracking"] = "times",
+        ["TimeTrackingSettings"] = "times",
         ["Workload"] = "times",
         ["Absences"] = "times",
 
@@ -150,7 +154,9 @@ public sealed class SwaggerClientGenerator : ISourceGenerator
 
         ["Webhooks"] = "integrations",
 
-        ["Autopilot"] = "automation"
+        ["Autopilot"] = "automation",
+        ["Workflows"] = "automation",
+        ["Workflow Automations"] = "automation"
     };
 
     private static readonly Dictionary<string, string> TagSubOverrides = new(StringComparer.OrdinalIgnoreCase)
@@ -160,7 +166,12 @@ public sealed class SwaggerClientGenerator : ISourceGenerator
         ["CompanyFiles"] = "company-files",
         ["CompanyTags"] = "company-tags",
         ["CommentFiles"] = "comment-files",
-        ["FileUpload"] = "upload"
+        ["FileUpload"] = "upload",
+        ["Project Activities"] = "activities",
+        ["Task Activities"] = "activities",
+        ["TaskTemplateTags"] = "template-tags",
+        ["TimeTrackingSettings"] = "settings",
+        ["Workflow Automations"] = "automations"
     };
 
     private static readonly HashSet<string> RootTags = new(StringComparer.OrdinalIgnoreCase)
@@ -557,7 +568,8 @@ public sealed class SwaggerClientGenerator : ISourceGenerator
             var argIndex = 0;
             foreach (var param in pathParams)
             {
-                var argLabel = param.Required ? $"<{param.OptionName}>" : $"[{param.OptionName}]";
+                var argumentName = GetPathArgumentName(op, param);
+                var argLabel = param.Required ? $"<{argumentName}>" : $"[{argumentName}]";
                 var type = param.IsArray ? "string[]?" : (param.Required ? "string" : "string?");
                 sb.AppendLine($"        [CommandArgument({argIndex}, \"{argLabel}\")]");
                 if (param.Required && !param.IsArray)
@@ -636,7 +648,8 @@ public sealed class SwaggerClientGenerator : ISourceGenerator
             {
                 if (param.Required)
                 {
-                    sb.AppendLine($"            if (CommandHelpers.IsMissing(settings.{param.PropertyName})) throw new InvalidOperationException(\"Missing <{param.OptionName}>.\");");
+                    var argumentName = GetPathArgumentName(op, param);
+                    sb.AppendLine($"            if (CommandHelpers.IsMissing(settings.{param.PropertyName})) throw new InvalidOperationException(\"Missing <{argumentName}>.\");");
                 }
             }
             foreach (var param in queryParams)
@@ -791,28 +804,36 @@ public sealed class SwaggerClientGenerator : ISourceGenerator
             }
             else
             {
-                var methodCall = new StringBuilder();
-                methodCall.Append($"            var result = await client.{op.MethodName}(");
-                var argFirst = true;
-                foreach (var param in pathParams)
+                var identifierResolverCall = BuildIdentifierResolverCall(op, pathParams);
+                if (identifierResolverCall is not null)
                 {
+                    sb.AppendLine($"            var result = await {identifierResolverCall}");
+                }
+                else
+                {
+                    var methodCall = new StringBuilder();
+                    methodCall.Append($"            var result = await client.{op.MethodName}(");
+                    var argFirst = true;
+                    foreach (var param in pathParams)
+                    {
+                        if (!argFirst) methodCall.Append(", ");
+                        argFirst = false;
+                        methodCall.Append($"settings.{param.PropertyName}");
+                    }
+                    if (op.HasBody)
+                    {
+                        if (!argFirst) methodCall.Append(", ");
+                        argFirst = false;
+                        methodCall.Append("body");
+                    }
                     if (!argFirst) methodCall.Append(", ");
                     argFirst = false;
-                    methodCall.Append($"settings.{param.PropertyName}");
-                }
-                if (op.HasBody)
-                {
+                    methodCall.Append("query");
                     if (!argFirst) methodCall.Append(", ");
-                    argFirst = false;
-                    methodCall.Append("body");
+                    methodCall.Append("cancellationToken");
+                    methodCall.Append(");");
+                    sb.AppendLine(methodCall.ToString());
                 }
-                if (!argFirst) methodCall.Append(", ");
-                argFirst = false;
-                methodCall.Append("query");
-                if (!argFirst) methodCall.Append(", ");
-                methodCall.Append("cancellationToken");
-                methodCall.Append(");");
-                sb.AppendLine(methodCall.ToString());
                 sb.AppendLine("            return Output(result);");
             }
             sb.AppendLine("        }");
@@ -882,8 +903,10 @@ public sealed class SwaggerClientGenerator : ISourceGenerator
                 var op = opEntry.Value;
                 var opId = op.TryGetProperty("operationId", out var opIdProp) ? opIdProp.GetString() : null;
                 if (string.IsNullOrWhiteSpace(opId)) continue;
+                if (op.TryGetProperty("deprecated", out var deprecatedProp) && deprecatedProp.ValueKind == JsonValueKind.True) continue;
 
                 var summary = op.TryGetProperty("summary", out var summaryProp) ? summaryProp.GetString() : null;
+                summary = GetEffectiveSummary(method, path, opId!, summary);
                 var tags = new List<string>();
                 if (op.TryGetProperty("tags", out var tagProp) && tagProp.ValueKind == JsonValueKind.Array)
                 {
@@ -937,6 +960,25 @@ public sealed class SwaggerClientGenerator : ISourceGenerator
         }
 
         return list;
+    }
+
+    private static string? GetEffectiveSummary(string method, string path, string operationId, string? summary)
+    {
+        if (string.Equals(method, "get", StringComparison.OrdinalIgnoreCase) &&
+            string.Equals(path, "/tasks/{taskId}", StringComparison.OrdinalIgnoreCase) &&
+            string.Equals(operationId, "GetTaskById", StringComparison.OrdinalIgnoreCase))
+        {
+            return "Returns the task with the specified id or task identifier.";
+        }
+
+        if (string.Equals(method, "get", StringComparison.OrdinalIgnoreCase) &&
+            string.Equals(path, "/projects/{projectId}", StringComparison.OrdinalIgnoreCase) &&
+            string.Equals(operationId, "GetProjectById", StringComparison.OrdinalIgnoreCase))
+        {
+            return "Returns the project with the specified id or project key.";
+        }
+
+        return summary;
     }
 
     private static string BuildCommandName(OperationInfo op, HashSet<string> collectionPathsWithItem)
@@ -1367,6 +1409,49 @@ public sealed class SwaggerClientGenerator : ISourceGenerator
 
         return null;
     }
+
+    private static string GetPathArgumentName(OperationInfo op, ParameterInfo param)
+    {
+        if (IsTaskGetByIdOperation(op) && string.Equals(param.Name, "taskId", StringComparison.OrdinalIgnoreCase))
+        {
+            return "task-id-or-identifier";
+        }
+
+        if (IsProjectGetByIdOperation(op) && string.Equals(param.Name, "projectId", StringComparison.OrdinalIgnoreCase))
+        {
+            return "project-id-or-key";
+        }
+
+        return param.OptionName;
+    }
+
+    private static string? BuildIdentifierResolverCall(OperationInfo op, List<ParameterInfo> pathParams)
+    {
+        var pathParam = pathParams.Count == 1 ? pathParams[0] : null;
+        if (pathParam is null) return null;
+
+        if (IsTaskGetByIdOperation(op))
+        {
+            return $"CommandHelpers.GetTaskByIdOrIdentifier(client, settings.{pathParam.PropertyName}, query, cancellationToken);";
+        }
+
+        if (IsProjectGetByIdOperation(op))
+        {
+            return $"CommandHelpers.GetProjectByIdOrKey(client, settings.{pathParam.PropertyName}, query, cancellationToken);";
+        }
+
+        return null;
+    }
+
+    private static bool IsTaskGetByIdOperation(OperationInfo op) =>
+        string.Equals(op.Method, "GET", StringComparison.OrdinalIgnoreCase) &&
+        string.Equals(op.Path, "/tasks/{taskId}", StringComparison.OrdinalIgnoreCase) &&
+        string.Equals(op.OperationId, "GetTaskById", StringComparison.OrdinalIgnoreCase);
+
+    private static bool IsProjectGetByIdOperation(OperationInfo op) =>
+        string.Equals(op.Method, "GET", StringComparison.OrdinalIgnoreCase) &&
+        string.Equals(op.Path, "/projects/{projectId}", StringComparison.OrdinalIgnoreCase) &&
+        string.Equals(op.OperationId, "GetProjectById", StringComparison.OrdinalIgnoreCase);
 
     private static HashSet<string> BuildCollectionPathsWithItem(List<OperationInfo> operations)
     {

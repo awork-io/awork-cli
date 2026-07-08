@@ -29,6 +29,10 @@ PY
 
 cli_dll="src/Awk.Cli/bin/Debug/net10.0/awork.dll"
 if [[ ! -f "$cli_dll" ]]; then
+  cli_dll="$(find src/Awk.Cli/bin/Debug/net10.0 -path '*/awork.dll' -type f | head -n 1 || true)"
+fi
+
+if [[ ! -f "$cli_dll" ]]; then
   echo "CLI build output not found. Run ./scripts/test-build.sh first." >&2
   exit 1
 fi

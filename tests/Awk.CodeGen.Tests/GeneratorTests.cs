@@ -388,6 +388,25 @@ public sealed class GeneratorTests
     }
 
     [Fact]
+    public void GetTaskAndProjectCommands_AcceptKeys()
+    {
+        var cli = GeneratedSources.Value.Cli;
+        var client = GeneratedSources.Value.Client;
+
+        Assert.Contains("[CommandArgument(0, \"<task-id-or-identifier>\")]", cli);
+        Assert.Contains("var result = await CommandHelpers.GetTaskByIdOrIdentifier(client, settings.TaskId, query, cancellationToken);", cli);
+        Assert.Contains(".WithDescription(\"Returns the task with the specified id or task identifier.\")", cli);
+        Assert.Contains("public Task<Awk.Models.ResponseEnvelope<object?>> GetTasksKeyByTaskIdentifier(string taskIdentifier, Dictionary<string, object?>? query = null, CancellationToken cancellationToken = default)", client);
+        Assert.Contains("return Call(\"GET\", $\"/tasks/key/{Escape(taskIdentifier)}\", query, null, null, cancellationToken);", client);
+
+        Assert.Contains("[CommandArgument(0, \"<project-id-or-key>\")]", cli);
+        Assert.Contains("var result = await CommandHelpers.GetProjectByIdOrKey(client, settings.ProjectId, query, cancellationToken);", cli);
+        Assert.Contains(".WithDescription(\"Returns the project with the specified id or project key.\")", cli);
+        Assert.Contains("public Task<Awk.Models.ResponseEnvelope<object?>> GetProjectsKeyByProjectKey(string projectKey, Dictionary<string, object?>? query = null, CancellationToken cancellationToken = default)", client);
+        Assert.Contains("return Call(\"GET\", $\"/projects/key/{Escape(projectKey)}\", query, null, null, cancellationToken);", client);
+    }
+
+    [Fact]
     public void BinaryResponseCommands_StreamRawBytes()
     {
         var cli = GeneratedSources.Value.Cli;
