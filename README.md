@@ -449,16 +449,23 @@ dotnet test
 
 ### Refresh Swagger
 
-The CLI generator reads the checked-in `swagger.json`. To pick up API changes from the awork app, refresh that file first:
+The CLI generator reads the checked-in `swagger.json`. To pick up public API changes, refresh that file first:
 
 ```bash
 ./scripts/update-swagger.sh
 dotnet build
 ```
 
-By default the script reads `../app/backend/services/ai-service/service/Assets/AworkOpenApiV1.json`.
-Set `AWORK_OPENAPI_SOURCE=/path/to/AworkOpenApiV1.json` to use another file.
-Set `API_BASE_URL=https://app.cwork.io` to fetch the live docs endpoint instead, matching the app repo's API client generation flow.
+By default the script downloads the expanded develop API contract from
+`https://aworkcdn.blob.core.windows.net/assets/awork-openapi-v1-develop.json`.
+This document includes concrete entity routes such as `/tasks/{taskId}/files`
+and `/projects/{projectId}/files`, as well as the agent API. During refresh, its
+develop server URL is replaced with `https://api.awork.com/api/v1` so generated
+clients continue to target production.
+
+Set `AWORK_OPENAPI_URL` to use another hosted document,
+`AWORK_OPENAPI_SOURCE=/path/to/openapi.json` to use a local file, or
+`AWORK_API_BASE_URL` to override the normalized API server URL.
 
 ### Package the Source Generator
 
@@ -520,7 +527,7 @@ This will:
 ```
 
 **Rebuilding regenerates the CLI from the current `swagger.json`; it does not fetch a newer app spec by itself.**
-Refresh `swagger.json` first when the app OpenAPI contract changes. No manual DTO updates are required.
+Refresh `swagger.json` first when the public OpenAPI contract changes. No manual DTO updates are required.
 
 ---
 

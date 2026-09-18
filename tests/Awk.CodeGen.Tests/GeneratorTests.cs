@@ -125,6 +125,7 @@ public sealed class GeneratorTests
     {
         var cli = GeneratedSources.Value.Cli;
         Assert.Contains("config.AddBranch(\"users\"", cli);
+        Assert.Contains("config.AddBranch(\"agents\"", cli);
         Assert.Contains("config.AddBranch(\"tasks\"", cli);
         Assert.Contains("config.AddBranch(\"projects\"", cli);
         Assert.Contains("config.AddBranch(\"times\"", cli);
@@ -210,6 +211,12 @@ public sealed class GeneratorTests
         var overrides = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase)
         {
             ["ApiUsers"] = "api-users",
+            ["AgentRuntime"] = "runtime",
+            ["AgentThreads"] = "threads",
+            ["Agent Thread Files"] = "thread-files",
+            ["Agent Schedules"] = "schedules",
+            ["Agent Skills"] = "skills",
+            ["Agent Files"] = "files",
             ["ChecklistItems"] = "checklist-items",
             ["CompanyFiles"] = "company-files",
             ["CompanyTags"] = "company-tags",
@@ -263,6 +270,8 @@ public sealed class GeneratorTests
     {
         var cli = GeneratedSources.Value.Cli;
         Assert.Contains("branch.AddCommand<GetUsers>(\"list\")", cli);
+        Assert.Contains("branch.AddCommand<GetAgents>(\"list\")", cli);
+        Assert.Contains("branch.AddBranch(\"threads\"", cli);
         Assert.Contains("branch.AddCommand<GetMe>(\"me\")", cli);
         Assert.Contains("branch.AddBranch(\"invitations\"", cli);
         Assert.Contains("branch.AddBranch(\"absence-regions\"", cli);
@@ -412,10 +421,10 @@ public sealed class GeneratorTests
         var cli = GeneratedSources.Value.Cli;
         var client = GeneratedSources.Value.Client;
 
-        Assert.Contains("public Task<Awk.Models.ResponseEnvelope<object?>> GetFile(string fileId, Stream destination, Dictionary<string, object?>? query = null, CancellationToken cancellationToken = default)", client);
+        Assert.Contains("public Task<Awk.Models.ResponseEnvelope<object?>> GetFilesDownloadByFileId(string fileId, Stream destination, Dictionary<string, object?>? query = null, CancellationToken cancellationToken = default)", client);
         Assert.Contains("return Download(\"GET\", $\"/files/{Escape(fileId)}/download\", query, destination, cancellationToken);", client);
         Assert.Contains("[CommandOption(\"--file <PATH>\")]", cli);
-        Assert.Contains("var result = await client.GetFile(settings.FileId, destination, query, cancellationToken);", cli);
+        Assert.Contains("var result = await client.GetFilesDownloadByFileId(settings.FileId, destination, query, cancellationToken);", cli);
         Assert.Contains("return result.StatusCode is >= 200 and <= 299 ? 0 : Output(result);", cli);
     }
 
@@ -425,9 +434,22 @@ public sealed class GeneratorTests
         var cli = GeneratedSources.Value.Cli;
         var client = GeneratedSources.Value.Client;
 
-        Assert.Contains("public Task<Awk.Models.ResponseEnvelope<object?>> GetCommentFileVersionContent(string commentId, string fileId, string versionId, Dictionary<string, object?>? query = null, CancellationToken cancellationToken = default)", client);
-        Assert.Contains("return Call(\"GET\", $\"/comments/{Escape(commentId)}/files/{Escape(fileId)}/versions/{Escape(versionId)}/download\", query, null, null, cancellationToken);", client);
-        Assert.Contains("var result = await client.GetCommentFileVersionContent(settings.CommentId, settings.FileId, settings.VersionId, query, cancellationToken);", cli);
+        Assert.Contains("public Task<Awk.Models.ResponseEnvelope<object?>> GetUsers(Dictionary<string, object?>? query = null, CancellationToken cancellationToken = default)", client);
+        Assert.Contains("return Call(\"GET\", \"/users\", query, null, null, cancellationToken);", client);
+        Assert.Contains("var result = await client.GetUsers(query, cancellationToken);", cli);
+    }
+
+    [Fact]
+    public void PublicAgentEndpoints_AreGenerated()
+    {
+        var cli = GeneratedSources.Value.Cli;
+        var client = GeneratedSources.Value.Client;
+
+        Assert.Contains("return Call(\"GET\", \"/agents\", query, null, null, cancellationToken);", client);
+        Assert.Contains("return Call(\"POST\", \"/agents\", query, body, \"application/json\", cancellationToken);", client);
+        Assert.Contains("return Call(\"POST\", \"/agents/threads\", query, body, \"application/json\", cancellationToken);", client);
+        Assert.Contains("branch.AddCommand<GetAgents>(\"list\")", cli);
+        Assert.Contains("sub.AddCommand<PostAgentsThreads>(\"create\")", cli);
     }
 
     private static IEnumerable<string> ExtractCommandNames(string cliSource)
