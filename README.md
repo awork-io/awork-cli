@@ -456,12 +456,13 @@ The CLI generator reads the checked-in `swagger.json`. To pick up public API cha
 dotnet build
 ```
 
-By default the script downloads the expanded develop API contract from
-`https://aworkcdn.blob.core.windows.net/assets/awork-openapi-v1-develop.json`.
-This document includes concrete entity routes such as `/tasks/{taskId}/files`
-and `/projects/{projectId}/files`, as well as the agent API. During refresh, its
-develop server URL is replaced with `https://api.awork.com/api/v1` so generated
-clients continue to target production.
+By default the script downloads the production API contract from
+`https://aworkcdn.blob.core.windows.net/assets/awork-openapi-v1.json`.
+During refresh, the document's server URL is normalized to
+`https://api.awork.com/api/v1` so generated clients target production. The
+current checked-in contract was bootstrapped from the corresponding develop
+document to include the expanded entity-file routes and agent API ahead of its
+next production refresh.
 
 Set `AWORK_OPENAPI_URL` to use another hosted document,
 `AWORK_OPENAPI_SOURCE=/path/to/openapi.json` to use a local file, or

@@ -4,7 +4,7 @@ set -euo pipefail
 cd "$(dirname "$0")/.."
 
 source_path="${AWORK_OPENAPI_SOURCE:-}"
-openapi_url="${AWORK_OPENAPI_URL:-https://aworkcdn.blob.core.windows.net/assets/awork-openapi-v1-develop.json}"
+openapi_url="${AWORK_OPENAPI_URL:-https://aworkcdn.blob.core.windows.net/assets/awork-openapi-v1.json}"
 api_base_url="${AWORK_API_BASE_URL:-${API_BASE_URL:-https://api.awork.com/api/v1}}"
 
 api_base_url="${api_base_url%/}"
