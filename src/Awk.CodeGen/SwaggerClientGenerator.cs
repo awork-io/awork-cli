@@ -39,6 +39,7 @@ public sealed class SwaggerClientGenerator : ISourceGenerator
     private static readonly string[] DomainOrder =
     {
         "users",
+        "agents",
         "tasks",
         "projects",
         "times",
@@ -53,6 +54,7 @@ public sealed class SwaggerClientGenerator : ISourceGenerator
     private static readonly Dictionary<string, string> DomainDescriptions = new(StringComparer.OrdinalIgnoreCase)
     {
         ["users"] = "Users",
+        ["agents"] = "Agents",
         ["tasks"] = "Tasks",
         ["projects"] = "Projects",
         ["times"] = "Times",
@@ -69,12 +71,22 @@ public sealed class SwaggerClientGenerator : ISourceGenerator
     {
         ["Accounts"] = "auth",
         ["ClientApplications"] = "auth",
+        ["Client Applications"] = "auth",
+
+        ["Custom Agents"] = "agents",
+        ["AgentRuntime"] = "agents",
+        ["AgentThreads"] = "agents",
+        ["Agent Thread Files"] = "agents",
+        ["Agent Schedules"] = "agents",
+        ["Agent Skills"] = "agents",
+        ["Agent Files"] = "agents",
 
         ["Users"] = "users",
         ["ApiUsers"] = "users",
         ["Invitations"] = "users",
         ["UserTags"] = "users",
         ["UserFiles"] = "users",
+        ["User Files"] = "users",
         ["UserCapacities"] = "users",
 
         ["Tasks"] = "tasks",
@@ -82,6 +94,7 @@ public sealed class SwaggerClientGenerator : ISourceGenerator
         ["AssignedTasks"] = "tasks",
         ["TaskComments"] = "tasks",
         ["TaskFiles"] = "tasks",
+        ["Task Files"] = "tasks",
         ["TaskTags"] = "tasks",
         ["TaskLists"] = "tasks",
         ["TaskSchedules"] = "tasks",
@@ -93,6 +106,7 @@ public sealed class SwaggerClientGenerator : ISourceGenerator
         ["Task Activities"] = "tasks",
         ["TaskTemplates"] = "tasks",
         ["TaskTemplateFiles"] = "tasks",
+        ["TaskTemplate Files"] = "tasks",
         ["TaskTemplateTags"] = "tasks",
         ["ChecklistItems"] = "tasks",
 
@@ -101,6 +115,7 @@ public sealed class SwaggerClientGenerator : ISourceGenerator
         ["ProjectMembers"] = "projects",
         ["ProjectComments"] = "projects",
         ["ProjectFiles"] = "projects",
+        ["Project Files"] = "projects",
         ["ProjectTags"] = "projects",
         ["Project Activities"] = "projects",
         ["ProjectStatuses"] = "projects",
@@ -110,6 +125,7 @@ public sealed class SwaggerClientGenerator : ISourceGenerator
         ["ProjectMilestoneTemplates"] = "projects",
         ["ProjectTemplates"] = "projects",
         ["ProjectTemplateFiles"] = "projects",
+        ["ProjectTemplate Files"] = "projects",
         ["ProjectTemplateTags"] = "projects",
         ["Project Automations"] = "projects",
         ["Project Template Automations"] = "projects",
@@ -125,6 +141,7 @@ public sealed class SwaggerClientGenerator : ISourceGenerator
 
         ["Workspaces"] = "workspace",
         ["WorkspaceFiles"] = "workspace",
+        ["Workspace Files"] = "workspace",
         ["WorkspaceAbsences"] = "workspace",
         ["Teams"] = "workspace",
         ["Roles"] = "workspace",
@@ -133,6 +150,7 @@ public sealed class SwaggerClientGenerator : ISourceGenerator
         ["TypeOfWork"] = "workspace",
         ["Companies"] = "workspace",
         ["CompanyFiles"] = "workspace",
+        ["Company Files"] = "workspace",
         ["CompanyTags"] = "workspace",
         ["Dashboards"] = "workspace",
         ["Activities"] = "workspace",
@@ -140,17 +158,21 @@ public sealed class SwaggerClientGenerator : ISourceGenerator
 
         ["Documents"] = "documents",
         ["DocumentFiles"] = "documents",
+        ["Document Files"] = "documents",
         ["DocumentComments"] = "documents",
         ["DocumentSpaces"] = "documents",
 
         ["Files"] = "files",
+        ["Entity Files"] = "files",
         ["FileUpload"] = "files",
         ["TemporaryFiles"] = "files",
+        ["Temporary Files"] = "files",
         ["SharedFiles"] = "files",
         ["Images"] = "files",
         ["CommentFiles"] = "files",
 
         ["Search"] = "search",
+        ["Filters"] = "search",
 
         ["Webhooks"] = "integrations",
 
@@ -161,22 +183,39 @@ public sealed class SwaggerClientGenerator : ISourceGenerator
 
     private static readonly Dictionary<string, string> TagSubOverrides = new(StringComparer.OrdinalIgnoreCase)
     {
+        ["AgentRuntime"] = "runtime",
+        ["AgentThreads"] = "threads",
+        ["Agent Thread Files"] = "thread-files",
+        ["Agent Schedules"] = "schedules",
+        ["Agent Skills"] = "skills",
+        ["Agent Files"] = "files",
         ["ApiUsers"] = "api-users",
         ["ChecklistItems"] = "checklist-items",
         ["CompanyFiles"] = "company-files",
+        ["Company Files"] = "company-files",
         ["CompanyTags"] = "company-tags",
         ["CommentFiles"] = "comment-files",
+        ["Document Files"] = "files",
+        ["Entity Files"] = "entity-files",
         ["FileUpload"] = "upload",
         ["Project Activities"] = "activities",
+        ["Project Files"] = "files",
+        ["ProjectTemplate Files"] = "template-files",
         ["Task Activities"] = "activities",
+        ["Task Files"] = "files",
+        ["TaskTemplate Files"] = "template-files",
         ["TaskTemplateTags"] = "template-tags",
         ["TimeTrackingSettings"] = "settings",
+        ["Temporary Files"] = "temporary-files",
+        ["User Files"] = "files",
+        ["Workspace Files"] = "files",
         ["Workflow Automations"] = "automations"
     };
 
     private static readonly HashSet<string> RootTags = new(StringComparer.OrdinalIgnoreCase)
     {
         "Users",
+        "Custom Agents",
         "Tasks",
         "Projects",
         "Workspaces",
@@ -1002,7 +1041,10 @@ public sealed class SwaggerClientGenerator : ISourceGenerator
         var isNestedResource = literalSegments.Count > 1;
         var resourceName = lastLiteralKebab;
         var tagName = ToKebabCase(NormalizeSegment(op.Tag));
-        var tagMatchesResource = string.Equals(resourceName, tagName, StringComparison.OrdinalIgnoreCase);
+        var tagGroup = ResolveTagGroupInfo(op.Tag);
+        var tagMatchesResource = string.Equals(resourceName, tagName, StringComparison.OrdinalIgnoreCase)
+            || (tagGroup.SubTag is null && string.Equals(resourceName, tagGroup.Domain, StringComparison.OrdinalIgnoreCase))
+            || string.Equals(resourceName, tagGroup.SubTag, StringComparison.OrdinalIgnoreCase);
         var isTopLevelResource = literalSegments.Count == 1;
         var itemResourceName = IsPluralResource(resourceName) ? SingularizeResource(resourceName) : resourceName;
         var hasItemPath = collectionPathsWithItem.Contains(op.Path);
@@ -1036,7 +1078,11 @@ public sealed class SwaggerClientGenerator : ISourceGenerator
                         : (hasItemPath && isNestedResource ? "list-" + resourceName : "get-" + ToKebabCase(lastLiteral)))),
             "POST" => segments.Count == 1
                 ? (tagMatchesResource ? "create" : "create-" + resourceName)
-                : (isActionSegment ? actionName : (isNestedResource ? "create-" + resourceName : (IsPluralResource(lastLiteralKebab) ? "create" : lastLiteralKebab))),
+                : (isActionSegment
+                    ? actionName
+                    : (isNestedResource
+                        ? (tagMatchesResource && !hasParamBeforeLastLiteral ? "create" : "create-" + resourceName)
+                        : (IsPluralResource(lastLiteralKebab) ? "create" : lastLiteralKebab))),
             "PUT" => (lastIsParam || segments.Count == 1)
                 ? (isActionSegment
                     ? actionName
