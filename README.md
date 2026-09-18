@@ -457,7 +457,7 @@ dotnet build
 ```
 
 By default the script downloads the production API contract from
-`https://aworkcdn.blob.core.windows.net/assets/awork-openapi-v1.json`.
+`https://api.awork.com/openapi/v1`.
 During refresh, the document's server URL is normalized to
 `https://api.awork.com/api/v1` so generated clients target production. The
 current checked-in contract was bootstrapped from the corresponding develop
