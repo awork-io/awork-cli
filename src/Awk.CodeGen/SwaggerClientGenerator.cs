@@ -79,6 +79,7 @@ public sealed class SwaggerClientGenerator : ISourceGenerator
         ["Agent Thread Files"] = "agents",
         ["Agent Schedules"] = "agents",
         ["Agent Skills"] = "agents",
+        ["Agent Prompts"] = "agents",
         ["Agent Files"] = "agents",
 
         ["Users"] = "users",
@@ -188,6 +189,7 @@ public sealed class SwaggerClientGenerator : ISourceGenerator
         ["Agent Thread Files"] = "thread-files",
         ["Agent Schedules"] = "schedules",
         ["Agent Skills"] = "skills",
+        ["Agent Prompts"] = "prompts",
         ["Agent Files"] = "files",
         ["ApiUsers"] = "api-users",
         ["ChecklistItems"] = "checklist-items",
