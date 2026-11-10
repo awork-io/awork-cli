@@ -4,6 +4,7 @@ using System.Text;
 using System.Text.Json;
 using System.Text.Json.Nodes;
 using Awk.Models;
+using JsonDomNode = System.Text.Json.Nodes.JsonNode;
 
 namespace Awk.Generated;
 
@@ -227,28 +228,28 @@ public sealed partial class AworkClient
         return fields;
     }
 
-    private static JsonNode? FilterElement(JsonElement element, HashSet<string> fields)
+    private static JsonDomNode? FilterElement(JsonElement element, HashSet<string> fields)
     {
         return element.ValueKind switch
         {
             JsonValueKind.Object => FilterObject(element, fields),
             JsonValueKind.Array => FilterArray(element, fields),
-            _ => JsonNode.Parse(element.GetRawText())
+            _ => JsonDomNode.Parse(element.GetRawText())
         };
     }
 
-    private static JsonNode FilterObject(JsonElement element, HashSet<string> fields)
+    private static JsonDomNode FilterObject(JsonElement element, HashSet<string> fields)
     {
         var node = new JsonObject();
         foreach (var property in element.EnumerateObject())
         {
             if (!fields.Contains(property.Name)) continue;
-            node[property.Name] = JsonNode.Parse(property.Value.GetRawText());
+            node[property.Name] = JsonDomNode.Parse(property.Value.GetRawText());
         }
         return node;
     }
 
-    private static JsonNode FilterArray(JsonElement element, HashSet<string> fields)
+    private static JsonDomNode FilterArray(JsonElement element, HashSet<string> fields)
     {
         var array = new JsonArray();
         foreach (var item in element.EnumerateArray())
@@ -259,7 +260,7 @@ public sealed partial class AworkClient
             }
             else
             {
-                array.Add(JsonNode.Parse(item.GetRawText()));
+                array.Add(JsonDomNode.Parse(item.GetRawText()));
             }
         }
         return array;

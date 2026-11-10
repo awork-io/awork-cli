@@ -460,9 +460,7 @@ By default the script downloads the production API contract from
 `https://api.awork.com/openapi/v1`.
 During refresh, the document's server URL is normalized to
 `https://api.awork.com/api/v1` so generated clients target production. The
-current checked-in contract was bootstrapped from the corresponding develop
-document to include the expanded entity-file routes and agent API ahead of its
-next production refresh.
+checked-in contract was refreshed from the production document on 2026-11-10.
 
 Set `AWORK_OPENAPI_URL` to use another hosted document,
 `AWORK_OPENAPI_SOURCE=/path/to/openapi.json` to use a local file, or
